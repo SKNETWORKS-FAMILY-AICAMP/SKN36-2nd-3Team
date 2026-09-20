@@ -210,6 +210,6 @@ def input_card_html(gender, age):
 <div class="feature-title">👤 사용자 정보 입력</div>
 <div class="feature-text">프로필에 등록된 사용자 정보를 입력해주세요.</div>
 {face_stack(gender, age)}
-<div style="margin-top:12px;font-size:12px;color:#aaa;">프로필 예시 이미지 · 예측에는 사용되지 않아요</div>
+<div style="margin-top:12px;font-size:13px;color:#6b6b6b;">프로필 예시 이미지 · 예측에는 사용되지 않아요</div>
 </div>
 """

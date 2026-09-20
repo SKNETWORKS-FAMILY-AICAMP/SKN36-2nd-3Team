@@ -15,6 +15,7 @@
 [파일 구성 — 모두 ui 폴더 안]
 - app.py            : (이 파일) SERVICE 화면 + 메뉴 이동
 - page_home.py      : HOME 화면 (서비스 소개)
+- service_view.py   : SERVICE 화면 오른쪽 '결과 칸' (입력 분석 + 카드 3장)
 - page_insight.py   : INSIGHT 화면 (이탈 위험 사용자 분석 대시보드)
 - page_retention.py : RETENTION 화면 (위험 수준별 리텐션 전략)
 - page_about.py     : ABOUT 화면 (프로젝트·모델 정보)
@@ -46,6 +47,7 @@ st.set_page_config(
 from styles import apply_styles        # styles.py  : CSS(디자인)
 from avatars import input_card_html    # avatars.py : 프로필 예시 얼굴이 들어간 입력 카드
 # 메뉴별 화면은 파일을 따로 두었어요. (as 뒤는 이 파일에서 부를 이름표)
+from service_view import render_result_panel               # SERVICE 오른쪽 결과 칸
 from page_home import render as render_home                # HOME      메뉴 화면
 from page_insight import render as render_insight        # INSIGHT   메뉴 화면
 from page_retention import render as render_retention    # RETENTION 메뉴 화면
@@ -76,7 +78,7 @@ logo_col, nav_col = st.columns([1.2, 3])
 with logo_col:
     st.markdown(
         """
-        <div class="logo">
+        <div class="logo nav-anchor">
             <span class="logo-heart">♥</span> StayMatch
         </div>
         """,
@@ -114,7 +116,7 @@ elif page == "SERVICE":
     # 화면 맨 위 제목 문구
     st.markdown("""
 <div style="padding-top: 50px; padding-bottom: 25px;">
-<div style="font-size: 14px; font-weight: 800; color: #ff4f81;">
+<div style="font-size: 14px; font-weight: 800; color: #d1245e;">
 CHURN RISK PREDICTION
 </div>
 
@@ -122,7 +124,7 @@ CHURN RISK PREDICTION
 사용자 이탈 위험 분석
 </div>
 
-<div style="font-size: 16px; color: #777; margin-top: 10px;">
+<div style="font-size: 16px; color: #5a5a5a; margin-top: 10px;">
 사용자 프로필 정보를 입력하면 장기 미접속 위험을 분석합니다.
 </div>
 </div>
@@ -531,124 +533,18 @@ CHURN RISK PREDICTION
     # =====================================================
     # 오른쪽 : 예측 결과
     # =====================================================
-    # 아래 카드 3개(예측 결과 / 주요 예측 신호 / 추천 리텐션 전략)는 지금은 '자리'만 만들어 둔 상태입니다.
-    # 모델이 연결되면 여기에 실제 결과가 표시돼요.
     with result_col:
-
-        # 카드 1: 이탈 위험도. 지금은 '--' 로 비워 둠 (나중에 예: 62% 처럼 표시)
-        st.markdown("""
-<div style="
-background: white;
-border: 1px solid #f4e6eb;
-border-radius: 24px;
-padding: 30px;
-box-shadow: 0 12px 35px rgba(58,26,37,0.05);
-margin-bottom: 20px;
-">
-
-<div style="
-font-size: 20px;
-font-weight: 800;
-color: #222;
-margin-bottom: 20px;
-">
-📊 예측 결과
-</div>
-
-<div style="
-background: #fff3f7;
-border-radius: 20px;
-padding: 35px;
-text-align: center;
-">
-
-<div style="
-font-size: 14px;
-color: #888;
-">
-CHURN RISK
-</div>
-
-<div style="
-font-size: 52px;
-font-weight: 850;
-color: #ff4f81;
-margin-top: 10px;
-">
---
-</div>
-
-<div style="
-font-size: 15px;
-color: #777;
-">
-모델 연결 후 예측 결과가 표시됩니다.
-</div>
-
-</div>
-
-</div>
-""", unsafe_allow_html=True)
-
-        # 카드 2: 주요 예측 신호. SHAP(각 항목이 위험도에 얼마나 영향을 줬는지 알려 주는 방법)으로 채울 예정
-        st.markdown("""
-<div style="
-background: white;
-border: 1px solid #f4e6eb;
-border-radius: 24px;
-padding: 28px;
-margin-bottom: 20px;
-">
-
-<div style="
-font-size: 19px;
-font-weight: 800;
-margin-bottom: 18px;
-">
-🔍 주요 예측 신호
-</div>
-
-<div style="
-color: #888;
-line-height: 1.9;
-font-size: 15px;
-">
-모델 예측 후 SHAP 값을 기반으로<br>
-사용자별 주요 예측 신호를 표시합니다.
-</div>
-
-</div>
-""", unsafe_allow_html=True)
-
-        # 카드 3: 추천 리텐션 전략 (리텐션 = 사용자가 앱을 계속 쓰도록 붙잡아 두는 활동)
-        #         위험 수준에 맞는 운영 방법(재접속 알림 등)을 보여줄 예정
-        st.markdown("""
-<div style="
-background: white;
-border: 1px solid #f4e6eb;
-border-radius: 24px;
-padding: 28px;
-">
-
-<div style="
-font-size: 19px;
-font-weight: 800;
-margin-bottom: 18px;
-">
-🎯 추천 리텐션 전략
-</div>
-
-<div style="
-color: #888;
-line-height: 1.9;
-font-size: 15px;
-">
-예측된 위험 수준과 주요 특성을 기반으로<br>
-플랫폼 운영자가 검토할 수 있는 리텐션 전략을 제공합니다.
-</div>
-
-</div>
-""", unsafe_allow_html=True)
+        # 결과 칸은 service_view.py 가 채워요. 입력한 자기소개·자녀·관계 상태를 분석해서
+        # 카드 3장(예측 결과 / 주요 신호 / 추천 리텐션 전략)을 그립니다.
+        # 아직 모델이 없어서 '위험 단계'는 비워 두고, 분석(EDA)에서 나온 실제 이탈률로 참고 신호를 보여줘요.
+        # TODO (모델 연결 때): risk_level 에 predict.py 의 예측 결과('low' / 'mid' / 'high')를 넘기면
+        #                      위험 단계 막대가 켜집니다.
+        render_result_panel(
+            essays=[essay0, essay1, essay2, essay3, essay4, essay5, essay6, essay7, essay8, essay9],
+            has_kids=has_kids,
+            status=status,
+            clicked=predict_button,
+        )
 
 
 # =========================================================

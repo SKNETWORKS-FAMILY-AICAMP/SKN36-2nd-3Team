@@ -10,6 +10,7 @@ INSIGHT / RETENTION / ABOUT 페이지가 공통으로 쓰는 '화면 조각'을 
   - 숫자 줄 / 단계 흐름 / 칩 목록   stat_band(), flow_row(), flow_card(), chip_card()
   - 색으로 보는 표(히트맵)          heatmap_card()
   - 가상 사용자 카드(페르소나)      persona_card()
+  - 핵심 발견 요약 띠               takeaway_band()
 
 [왜 따로 뺐나요?]
 카드를 만드는 HTML 코드는 길고 반복돼요. 한곳에 모아 두면 세 페이지가 같은 모양을 쓰고,
@@ -43,9 +44,9 @@ def page_header(label, title, subtitle):
     """SERVICE 화면 제목과 같은 모양: 작은 핑크 글씨 + 큰 제목 + 회색 설명"""
     return (
         '<div style="padding-top: 50px; padding-bottom: 25px;">'
-        f'<div style="font-size: 14px; font-weight: 800; color: #ff4f81;">{esc(label)}</div>'
+        f'<div style="font-size: 14px; font-weight: 800; color: #d1245e;">{esc(label)}</div>'
         f'<div style="font-size: 38px; font-weight: 850; color: #222; margin-top: 8px;">{esc(title)}</div>'
-        f'<div style="font-size: 16px; color: #777; margin-top: 10px;">{esc(subtitle)}</div>'
+        f'<div style="font-size: 16px; color: #5a5a5a; margin-top: 10px;">{esc(subtitle)}</div>'
         '</div>'
     )
 
@@ -285,3 +286,14 @@ def persona_card(face_html, name, level, level_text, story, headline_text, headl
         f'<div class="preview-label">함께 보면 좋은 신호 (각각의 이탈률)</div><div>{trait_html}</div>'
         f'<div class="preview-label" style="margin-top:8px">이렇게 도와주세요</div><div>{action_html}</div></div>'
     )
+
+
+def takeaway_band(title, items):
+    """페이지 맨 위에 두는 '핵심 발견 요약' 띠. 큰 숫자 + 한 줄 결론 + 짧은 근거를 나란히 보여준다.
+
+    items = [(큰 숫자, 한 줄 결론, 짧은 근거), ...]   (보통 3개)
+    """
+    cells = "".join(f'<div class="take-item"><div class="take-big">{esc(big)}</div>'
+                    f'<div class="take-title">{esc(head)}</div><div class="take-text">{esc(text)}</div></div>'
+                    for big, head, text in items)
+    return f'<div class="take-band"><div class="take-eyebrow">{esc(title)}</div><div class="take-row">{cells}</div></div>'

@@ -83,7 +83,7 @@ CSS = """
     padding: 9px 18px;
     border-radius: 30px;
     background: #fff0f5;
-    color: #ff4f81;
+    color: #d1245e;
     font-size: 14px;
     font-weight: 700;
     margin-bottom: 24px;
@@ -110,8 +110,8 @@ CSS = """
 
 .hero-sub {
     margin-top: 8px;
-    font-size: 15px;
-    color: #999999;
+    font-size: 16px;
+    color: #6b6b6b;
 }
 
 /* ---------- 카드 ---------- */
@@ -122,7 +122,7 @@ CSS = """
     border: 1px solid #f4e6eb;
     border-radius: 24px;
     padding: 30px 28px;
-    min-height: 210px;
+    min-height: 240px;
     box-shadow: 0 12px 35px rgba(58, 26, 37, 0.05);
 }
 
@@ -146,8 +146,8 @@ CSS = """
 }
 
 .feature-text {
-    font-size: 15px;
-    color: #777777;
+    font-size: 15.5px;
+    color: #5a5a5a;
     line-height: 1.7;
 }
 
@@ -155,7 +155,7 @@ CSS = """
 /* "WHAT WE DO" 같은 작은 글자(label)와 그 아래 큰 제목(title) */
 .section-label {
     text-align: center;
-    color: #ff4f81;
+    color: #d1245e;
     font-size: 14px;
     font-weight: 800;
     letter-spacing: 1px;
@@ -176,7 +176,7 @@ CSS = """
 div.stButton > button {
     border: none;
     border-radius: 14px;
-    background: #ff4f81;
+    background: #e0295f;
     color: white;
     font-weight: 750;
     font-size: 16px;
@@ -186,7 +186,7 @@ div.stButton > button {
 }
 
 div.stButton > button:hover {
-    background: #ff3f7a;
+    background: #c81e55;
     color: white;
     border: none;
 }
@@ -228,7 +228,7 @@ div[data-testid="stExpander"] {
 
 div[data-testid="stExpander"] summary {
     background: #ffe4ec !important;
-    color: #ff4f87 !important;
+    color: #c81e55 !important;
     font-weight: 700 !important;
     border-radius: 12px !important;
     padding: 12px 16px !important;
@@ -357,8 +357,8 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .section-sub {
-    font-size: 14px;
-    color: #999999;
+    font-size: 15px;
+    color: #6b6b6b;
     margin-bottom: 14px;
     line-height: 1.6;
 }
@@ -380,15 +380,15 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .dash-sub {
-    font-size: 13px;
-    color: #999999;
+    font-size: 14px;
+    color: #6b6b6b;
     margin: 4px 0 14px 0;
     line-height: 1.6;
 }
 
 .dash-foot {
-    font-size: 12px;
-    color: #aaaaaa;
+    font-size: 13px;
+    color: #6b6b6b;
     margin-top: 14px;
 }
 
@@ -398,9 +398,9 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .kpi-label {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
-    color: #888888;
+    color: #5a5a5a;
 }
 
 .kpi-value {
@@ -412,8 +412,8 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .kpi-sub {
-    font-size: 12.5px;
-    color: #999999;
+    font-size: 13.5px;
+    color: #6b6b6b;
     margin-top: 4px;
     line-height: 1.5;
 }
@@ -428,7 +428,7 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .bar-label {
-    width: 130px;
+    width: 150px;
     flex-shrink: 0;
     font-size: 14px;
     font-weight: 650;
@@ -437,9 +437,9 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .bar-n {
-    font-size: 11.5px;
+    font-size: 12.5px;
     font-weight: 500;
-    color: #b0b0b0;
+    color: #6b6b6b;
 }
 
 /* 막대가 들어가는 옅은 트랙 */
@@ -492,14 +492,14 @@ li[role="option"][aria-selected="true"] * {
     display: inline-block;
     padding: 4px 12px;
     border-radius: 20px;
-    font-size: 12px;
+    font-size: 12.5px;
     font-weight: 800;
     white-space: nowrap;
 }
 
-.tag-high { background: #ffe0e8; color: #e0245e; }
-.tag-mid  { background: #fff0d9; color: #c9791a; }
-.tag-low  { background: #e8f7ec; color: #2f8f4e; }
+.tag-high { background: #ffe0e8; color: #c81e55; }
+.tag-mid  { background: #fff0d9; color: #9a5a08; }
+.tag-low  { background: #e8f7ec; color: #237a3f; }
 
 /* ---------- 표 ---------- */
 .fact-table {
@@ -510,7 +510,7 @@ li[role="option"][aria-selected="true"] * {
 
 .fact-table th {
     text-align: left;
-    color: #888888;
+    color: #5a5a5a;
     font-weight: 700;
     padding: 10px 12px;
     border-bottom: 1px solid #f4e6eb;
@@ -520,6 +520,7 @@ li[role="option"][aria-selected="true"] * {
     padding: 12px;
     color: #333333;
     border-bottom: 1px solid #f9eef2;
+    font-size: 14.5px;
 }
 
 /* 강조할 줄 (채택한 모델) */
@@ -548,7 +549,7 @@ li[role="option"][aria-selected="true"] * {
     height: 24px;
     border-radius: 50%;
     background: #ffe4ec;
-    color: #ff4f81;
+    color: #c81e55;
     font-size: 13px;
     font-weight: 900;
     display: flex;
@@ -565,8 +566,8 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .check-text {
-    font-size: 13.5px;
-    color: #888888;
+    font-size: 14px;
+    color: #5a5a5a;
     line-height: 1.6;
     margin-top: 2px;
 }
@@ -577,15 +578,15 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .code {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
-    color: #b0a0a6;
+    color: #6b6b6b;
     margin-left: 6px;
 }
 
 /* ---------- 문단 / 안내 상자 / 준비 중 ---------- */
 .para {
-    font-size: 14.5px;
+    font-size: 15px;
     color: #555555;
     line-height: 1.8;
     margin-bottom: 10px;
@@ -595,8 +596,8 @@ li[role="option"][aria-selected="true"] * {
     background: #fff3f7;
     border-radius: 16px;
     padding: 14px 18px;
-    font-size: 13.5px;
-    color: #7a6a70;
+    font-size: 14.5px;
+    color: #5a5a5a;
     line-height: 1.75;
     margin: 6px 0 20px 0;
 }
@@ -607,8 +608,8 @@ li[role="option"][aria-selected="true"] * {
     border: 1.5px dashed #f3b8ca;
     border-radius: 16px;
     text-align: center;
-    color: #b58a9a;
-    font-size: 14px;
+    color: #8a5a6e;
+    font-size: 15px;
     line-height: 1.7;
 }
 
@@ -644,8 +645,8 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .action-text {
-    font-size: 14px;
-    color: #777777;
+    font-size: 14.5px;
+    color: #5a5a5a;
     line-height: 1.6;
     margin-top: 3px;
 }
@@ -665,7 +666,7 @@ li[role="option"][aria-selected="true"] * {
 
 .level-goal {
     font-size: 14.5px;
-    color: #777777;
+    color: #5a5a5a;
     line-height: 1.7;
     margin: 8px 0 4px 0;
 }
@@ -690,7 +691,7 @@ li[role="option"][aria-selected="true"] * {
     padding: 2px 10px;
     border-radius: 12px;
     background: #ffe4ec;
-    color: #ff4f81;
+    color: #c81e55;
     font-size: 12px;
     font-weight: 800;
     margin-bottom: 8px;
@@ -710,7 +711,7 @@ li[role="option"][aria-selected="true"] * {
     border-radius: 28px;
     box-shadow: 0 12px 35px rgba(58, 26, 37, 0.05);
     padding: 26px 10px;
-    margin: 6px 0 10px 0;
+    margin: 30px 0 10px 0;
 }
 
 .stat-item {
@@ -733,8 +734,8 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .stat-label {
-    font-size: 13px;
-    color: #888888;
+    font-size: 14px;
+    color: #5a5a5a;
     margin-top: 4px;
 }
 
@@ -769,7 +770,7 @@ li[role="option"][aria-selected="true"] * {
     height: 40px;
     border-radius: 50%;
     background: #ffe4ec;
-    color: #ff4f81;
+    color: #c81e55;
     font-size: 17px;
     font-weight: 850;
     display: flex;
@@ -790,8 +791,8 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .flow-desc {
-    font-size: 14px;
-    color: #777777;
+    font-size: 14.5px;
+    color: #5a5a5a;
     line-height: 1.65;
     margin-top: 6px;
 }
@@ -799,9 +800,9 @@ li[role="option"][aria-selected="true"] * {
 /* 단계 아래의 핵심 숫자/문구 (예: 59,946명 · 31개 컬럼) */
 .flow-meta {
     margin-top: 12px;
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 700;
-    color: #ff4f81;
+    color: #c81e55;
 }
 
 .flow-arrow {
@@ -818,19 +819,19 @@ li[role="option"][aria-selected="true"] * {
     border-radius: 14px;
     background: #f6f1f3;
     color: #5a4d52;
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 600;
     margin: 0 6px 8px 0;
 }
 
 .chip b {
-    color: #ff4f81;
+    color: #c81e55;
     font-weight: 800;
 }
 
 .chip-pink {
     background: #ffe4ec;
-    color: #e0245e;
+    color: #c81e55;
     font-weight: 750;
 }
 
@@ -850,8 +851,8 @@ li[role="option"][aria-selected="true"] * {
     top: 18px;
     right: 20px;
     background: #fff0f5;
-    color: #b58a9a;
-    font-size: 11px;
+    color: #8a5a6e;
+    font-size: 12px;
     font-weight: 800;
     padding: 3px 10px;
     border-radius: 12px;
@@ -881,9 +882,9 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .preview-label {
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 750;
-    color: #888888;
+    color: #5a5a5a;
     margin-bottom: 8px;
 }
 
@@ -902,8 +903,8 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .cta-text {
-    font-size: 15px;
-    color: #777777;
+    font-size: 16px;
+    color: #5a5a5a;
     margin: 10px 0 22px 0;
 }
 
@@ -916,9 +917,9 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .heat-table th {
-    font-size: 12.5px;
+    font-size: 13px;
     font-weight: 700;
-    color: #888888;
+    color: #5a5a5a;
     text-align: center;
     padding: 4px 2px;
 }
@@ -934,6 +935,13 @@ li[role="option"][aria-selected="true"] * {
     padding: 0;
 }
 
+/* 스트림릿의 기본 표 테두리와 배경을 지워서 칸 사이에 선이 보이지 않게 */
+.heat-table th,
+.heat-table td {
+    border: none !important;
+    background: transparent !important;
+}
+
 .heat-cell {
     border-radius: 12px;
     padding: 12px 6px;
@@ -943,9 +951,9 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .heat-n {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
-    opacity: 0.75;
+    opacity: 0.95;
     margin-top: 2px;
 }
 
@@ -966,8 +974,8 @@ li[role="option"][aria-selected="true"] * {
     top: 18px;
     right: 20px;
     background: #fff0f5;
-    color: #b58a9a;
-    font-size: 11px;
+    color: #8a5a6e;
+    font-size: 12px;
     font-weight: 800;
     padding: 3px 10px;
     border-radius: 12px;
@@ -987,8 +995,8 @@ li[role="option"][aria-selected="true"] * {
 }
 
 .persona-story {
-    font-size: 14px;
-    color: #777777;
+    font-size: 14.5px;
+    color: #5a5a5a;
     line-height: 1.7;
     margin: 16px 0 4px 0;
 }
@@ -1010,14 +1018,251 @@ li[role="option"][aria-selected="true"] * {
     letter-spacing: -1px;
 }
 
-.persona-rate.high { color: #e0245e; }
-.persona-rate.mid  { color: #c9791a; }
-.persona-rate.low  { color: #2f8f4e; }
+.persona-rate.high { color: #c81e55; }
+.persona-rate.mid  { color: #9a5a08; }
+.persona-rate.low  { color: #237a3f; }
 
 .persona-stat-text {
-    font-size: 13px;
-    color: #7a6a70;
+    font-size: 13.5px;
+    color: #5a5a5a;
     line-height: 1.6;
+}
+
+/* ---------- 핵심 발견 요약 띠 (INSIGHT 맨 위) ---------- */
+/* 페이지를 열자마자 '결론 3가지'를 읽을 수 있게, 은은한 핑크 바탕에 큰 숫자로 보여줘요 */
+.take-band {
+    background: linear-gradient(135deg, #fff0f5 0%, #ffffff 70%);
+    border: 1px solid #f4dce4;
+    border-radius: 28px;
+    padding: 26px 30px 22px 30px;
+    margin: 4px 0 22px 0;
+    box-shadow: 0 12px 35px rgba(58, 26, 37, 0.05);
+}
+
+.take-eyebrow {
+    font-size: 14px;
+    font-weight: 800;
+    color: #d1245e;
+    margin-bottom: 14px;
+}
+
+.take-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 22px;
+}
+
+.take-item {
+    flex: 1;
+    min-width: 220px;
+    border-left: 3px solid #ffc2d4;
+    padding-left: 16px;
+}
+
+.take-big {
+    font-size: 34px;
+    font-weight: 850;
+    color: #ff4f81;
+    letter-spacing: -1px;
+    line-height: 1.15;
+}
+
+.take-title {
+    font-size: 16.5px;
+    font-weight: 800;
+    color: #252525;
+    margin-top: 6px;
+}
+
+.take-text {
+    font-size: 14px;
+    color: #5a5a5a;
+    line-height: 1.6;
+    margin-top: 4px;
+}
+
+/* 히트맵 표의 줄(tr)에도 스트림릿이 넣는 가로줄 제거 */
+.heat-table,
+.heat-table tr {
+    border: none !important;
+    background: transparent !important;
+}
+
+/* ================================================================ */
+/* SERVICE 화면 오른쪽 '결과 칸' 카드 (service_view.py 가 만드는 HTML)   */
+/* ================================================================ */
+.result-card {
+    position: relative;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid #f4e6eb;
+    border-radius: 24px;
+    padding: 26px 28px;
+    box-shadow: 0 12px 35px rgba(58, 26, 37, 0.05);
+    margin-bottom: 20px;
+}
+
+.result-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #222222;
+    margin-bottom: 16px;
+}
+
+/* 위험 단계 막대: Low / Medium / High 세 칸. dim 이 붙은 칸은 흐리게(아직 모름) */
+.risk-scale {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.risk-seg {
+    flex: 1;
+    text-align: center;
+    padding: 12px 0;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.risk-seg.low  { background: #e8f7ec; color: #237a3f; }
+.risk-seg.mid  { background: #fff0d9; color: #9a5a08; }
+.risk-seg.high { background: #ffe0e8; color: #c81e55; }
+.risk-seg.dim  { opacity: 0.45; }
+
+.result-note {
+    font-size: 14px;
+    color: #5a5a5a;
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+/* '비슷하게 쓴 사용자의 실제 이탈률' 상자 */
+.ref-box {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    background: #fff7fa;
+    border-radius: 18px;
+    padding: 18px 20px;
+}
+
+.ref-rate {
+    font-size: 40px;
+    font-weight: 850;
+    letter-spacing: -1px;
+    white-space: nowrap;
+}
+
+.ref-text {
+    font-size: 14px;
+    color: #5a5a5a;
+    line-height: 1.65;
+}
+
+/* 신호 한 줄: warn(주의) 은 연한 핑크, ok(양호) 는 연한 초록 배경 */
+.sig-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px 14px;
+    border-radius: 14px;
+    margin-bottom: 8px;
+}
+
+.sig-row.warn { background: #fff3f7; }
+.sig-row.ok   { background: #f2faf4; }
+
+.sig-icon {
+    font-size: 18px;
+    line-height: 1.4;
+}
+
+.sig-title {
+    font-size: 15px;
+    font-weight: 750;
+    color: #2a2a2a;
+}
+
+.sig-stat {
+    font-size: 13.5px;
+    color: #5a5a5a;
+    line-height: 1.55;
+    margin-top: 2px;
+}
+
+/* 추천 전략 한 줄 */
+.strat-row {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #f9eef2;
+}
+
+.strat-row:last-child {
+    border-bottom: none;
+}
+
+.strat-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: #fff0f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 21px;
+    flex-shrink: 0;
+}
+
+/* ================================================================ */
+/* 상단 메뉴 고정 (스크롤해도 화면 맨 위에 붙어 있게)                     */
+/* ================================================================ */
+/* app.py 의 로고에 붙인 nav-anchor 표시를 보고, 그 표시가 들어 있는 '맨 위 한 줄'만 고정해요.
+   (:has() 는 '안에 ~가 있는 것'을 고르는 CSS 문법이에요. 최신 크롬/엣지/사파리/파이어폭스에서 동작)
+   스트림릿 버전에 따라 줄을 감싸는 상자가 있을 수도, 없을 수도 있어서 두 경우를 모두 적어 뒀어요. */
+.block-container > div[data-testid="stVerticalBlock"] > *:has(.nav-anchor),
+div[data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > *:has(.nav-anchor) {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    background: rgba(255, 250, 251, 0.92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 12px 0 8px 0;
+    border-bottom: 1px solid rgba(244, 230, 235, 0.9);
+}
+
+/* ================================================================ */
+/* 한글 줄바꿈: 단어 중간(예: "프|로필")에서 끊기지 않고 띄어쓰기에서 줄바꿈 */
+/* ================================================================ */
+.stApp {
+    word-break: keep-all;
+    overflow-wrap: break-word;
+}
+
+/* ---------- 모델 비교 표: 스트림릿 기본 격자(세로줄·바깥 테두리)를 지우고 가로줄만 남김 ---------- */
+.fact-table,
+.fact-table th,
+.fact-table td,
+.fact-table tr {
+    border-left: none !important;
+    border-right: none !important;
+    border-top: none !important;
+    background: transparent !important;
+}
+
+.fact-table th {
+    border-bottom: 1px solid #f4e6eb !important;
+}
+
+.fact-table td {
+    border-bottom: 1px solid #f9eef2 !important;
+}
+
+/* 강조할 줄(채택한 모델)의 배경은 위에서 지운 배경보다 우선해야 해서 다시 한 번 지정 */
+.fact-table tr.hl td {
+    background: #fff0f5 !important;
 }
 </style>
 """
