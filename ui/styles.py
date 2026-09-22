@@ -1226,10 +1226,28 @@ div[data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > *
     position: sticky;
     top: 0;
     z-index: 999;
-    background: rgba(255, 250, 251, 0.92);
+    padding: 12px 0 8px 0;
+    isolation: isolate;
+}
+
+/* 메뉴 바의 흰 배경을 브라우저 전체 폭으로 확장 */
+.block-container > div[data-testid="stVerticalBlock"] > *:has(.nav-anchor),
+div[data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > *:has(.nav-anchor) {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+
+    /* 메뉴 바를 브라우저 전체 폭으로 확장 */
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin-left: calc(50% - 50vw) !important;
+
+    box-sizing: border-box;
+    padding: 12px max(40px, calc((100vw - 1250px) / 2)) 8px;
+
+    background: rgba(255, 250, 251, 0.97);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    padding: 12px 0 8px 0;
     border-bottom: 1px solid rgba(244, 230, 235, 0.9);
 }
 
