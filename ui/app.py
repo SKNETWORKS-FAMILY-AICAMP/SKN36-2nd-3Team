@@ -1,4 +1,4 @@
-"""StayMatch 화면 (app.py) — 실행할 때 가장 먼저 읽히는 메인 파일
+"""Catch 화면 (app.py) — 실행할 때 가장 먼저 읽히는 메인 파일
 
 [이 서비스는 뭔가요?]
 데이팅 앱 운영사 담당자가 사용자 프로필(나이, 직업 등)을 입력하면
@@ -36,7 +36,7 @@ import streamlit as st    # 웹 화면을 파이썬으로 만들어 주는 라�
 # 웹 페이지의 '기본값'을 정합니다.
 # 주의: 화면을 그리는 Streamlit 명령 중 가장 먼저 실행돼야 해서 맨 위에 둡니다.
 st.set_page_config(
-    page_title="StayMatch",          # 브라우저 탭에 보이는 이름
+    page_title="Catch",          # 브라우저 탭에 보이는 이름
     page_icon="💘",                   # 브라우저 탭에 보이는 아이콘
     layout="wide",                   # 화면을 좌우로 넓게 사용
     initial_sidebar_state="collapsed"   # 왼쪽 사이드바는 처음부터 접어 둠 (안 쓰므로)
@@ -93,14 +93,8 @@ logo_col, nav_col = st.columns([1.2, 3])
 
 # "with 칸:" 아래 들여쓴 코드는 그 칸 안에 그려집니다.
 with logo_col:
-    st.markdown(
-        """
-        <div class="logo nav-anchor">
-            <span class="logo-heart">♥</span> StayMatch
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    if st.button("♥ Catch", key="logo_home", type="tertiary"):
+        st.session_state.page = "HOME"
 
 with nav_col:
     # 메뉴를 '라디오 버튼(여러 개 중 하나만 고르는 버튼)'으로 만들었어요.
