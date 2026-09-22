@@ -3,7 +3,7 @@
 [이 화면은 뭘 보여주나요?]
 서비스를 처음 보는 사람이 "이게 뭐고, 어떻게 쓰고, 어떤 결과가 나오는지" 이해하도록 안내하는 화면입니다.
   1) 큰 제목(Hero)과 시작 버튼
-  2) 숫자로 보는 StayMatch (사용자 수, 이탈률, 사용 항목, 이탈자 탐지 비율)
+  2) 숫자로 보는 Catch (사용자 수, 이탈률, 사용 항목, 이탈자 탐지 비율)
   3) 제공하는 기능 3가지
   4) 이용 흐름 3단계
   5) 결과 화면 미리보기 (예시)
@@ -177,25 +177,121 @@ def render(on_start):
         unsafe_allow_html=True,
     )
 
-    show(
-        '<div class="catch-story">'
-        '<div class="catch-story-title">BEFORE THEY GO,<br>THERE&apos;S A SIGN.</div>'
-        '<div class="catch-story-desc">떠나기 전에는,<br>늘 놓치기 쉬운 신호가 있습니다.</div>'
-        '</div>'
-    )
 
-    # 숫자로 보는 Catch
+    # ── 이탈 신호 소개 ─────────────────────────────
     recall_pct = round(facts.MODEL_METRICS["Recall"] * 100)
 
-    show(
-        stat_band(
-            [
-                (f"{facts.TOTAL_USERS:,}명", "분석한 사용자"),
-                (f"{facts.CHURN_RATE:.1f}%", f"{facts.CHURN_DAYS}일 이상 미접속(이탈)한 비율"),
-                (f"{facts.FEATURE_COUNT}개", "예측에 쓴 프로필 항목"),
-                (f"약 {recall_pct}%", "실제 이탈자를 찾아낸 비율"),
-            ]
-        )
+    st.markdown(
+        f"""
+<style>
+.signal-section {{
+    min-height: 92vh;
+    padding: 105px 7vw 80px;
+    box-sizing: border-box;
+    text-align: center;
+}}
+
+.signal-title {{
+    color: #171217;
+    font-size: clamp(48px, 5.8vw, 94px);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.075em;
+}}
+
+.signal-sub {{
+    margin-top: 25px;
+    color: #655860;
+    font-size: clamp(17px, 1.35vw, 22px);
+    font-weight: 600;
+    line-height: 1.6;
+}}
+
+.signal-layout {{
+    max-width: 1180px;
+    margin: 85px auto 0;
+    display: grid;
+    grid-template-columns: 1fr 1.25fr 1fr;
+    align-items: center;
+    gap: 48px;
+    text-align: left;
+}}
+
+.signal-stat {{
+    padding: 28px 0;
+    border-top: 1px solid #eadde2;
+}}
+
+.signal-number {{
+    color: #ff4f87;
+    font-size: clamp(35px, 3.1vw, 56px);
+    font-weight: 800;
+    letter-spacing: -0.06em;
+}}
+
+.signal-label {{
+    margin-top: 8px;
+    color: #655860;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.45;
+}}
+
+.signal-preview {{
+    text-align: left;
+}}
+
+@media (max-width: 768px) {{
+    .signal-section {{
+        padding: 75px 24px 55px;
+    }}
+
+    .signal-layout {{
+        grid-template-columns: 1fr;
+        margin-top: 55px;
+        gap: 18px;
+    }}
+
+    .signal-preview {{
+        order: -1;
+    }}
+}}
+</style>
+
+<section class="signal-section">
+    <div class="signal-title">BEFORE THEY GO,<br>THERE&apos;S A SIGN.</div>
+    <div class="signal-sub">떠나기 전에는,<br>늘 놓치기 쉬운 신호가 있습니다.</div>
+
+    <div class="signal-layout">
+        <div>
+            <div class="signal-stat">
+                <div class="signal-number">{facts.TOTAL_USERS:,}명</div>
+                <div class="signal-label">분석한 사용자</div>
+            </div>
+            <div class="signal-stat">
+                <div class="signal-number">{facts.CHURN_RATE:.1f}%</div>
+                <div class="signal-label">{facts.CHURN_DAYS}일 이상 미접속한<br>사용자 비율</div>
+            </div>
+        </div>
+
+        <div class="signal-preview">
+            {_preview_card()}
+        </div>
+
+        <div>
+            <div class="signal-stat">
+                <div class="signal-number">{facts.FEATURE_COUNT}개</div>
+                <div class="signal-label">예측에 쓴 프로필 항목</div>
+            </div>
+            <div class="signal-stat">
+                <div class="signal-number">약 {recall_pct}%</div>
+                <div class="signal-label">실제 이탈자를<br>찾아낸 비율</div>
+            </div>
+        </div>
+    </div>
+</section>
+""",
+        unsafe_allow_html=True,
     )
 
     # 기능 소개
@@ -256,47 +352,6 @@ def render(on_start):
 """,
             unsafe_allow_html=True,
         )
-
-    # 이용 흐름
-    show(
-        '<div class="section-label">HOW IT WORKS</div>'
-        '<div class="section-title">이렇게 사용해요</div>'
-    )
-
-    show(
-        flow_row(
-            [
-                ("", "프로필 입력", "나이, 직업, 자기소개 같은 사용자 프로필 정보를 입력해요.", ""),
-                ("", "이탈 위험 예측", "장기 미접속 확률을 계산해서 Low / Medium / High 로 알려줘요.", ""),
-                ("", "리텐션 전략 확인", "위험 수준에 맞는 유지 전략을 바로 확인해요.", ""),
-            ],
-            numbered=True,
-        )
-    )
-
-    # 결과 미리보기
-    show(
-        '<div class="section-label">PREVIEW</div>'
-        '<div class="section-title">이런 결과를 받아볼 수 있어요</div>'
-    )
-
-    left, right = st.columns(2, gap="large")
-
-    with left:
-        show(
-            check_list_card(
-                "결과 화면에는 이런 내용이 담겨요",
-                "예측 한 번으로 세 가지를 알 수 있어요.",
-                [
-                    ("위험 등급", "Low / Medium / High 로 한눈에 확인해요."),
-                    ("주요 예측 신호", "어떤 프로필 특징이 위험도에 영향을 줬는지 알려줘요."),
-                    ("추천 리텐션 전략", "위험 수준에 맞는 조치를 바로 제안해요."),
-                ],
-            )
-        )
-
-    with right:
-        show(_preview_card())
 
     # 마지막 CTA
     show(
