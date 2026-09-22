@@ -1,0 +1,9 @@
+[project]
+name = "skn36-2nd-3team"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "dicebear-core>=10.7.0",
+    "dicebear-styles>=10.6.0",
+    "streamlit>=1.64.0",
+]
