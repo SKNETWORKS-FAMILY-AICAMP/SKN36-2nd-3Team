@@ -2,18 +2,20 @@
 
 [이 파일이 하는 일]
 SERVICE 화면 오른쪽 '결과 칸'을 카드 3장으로 채워 줍니다.
-  1) 예측 결과       : 위험 단계 막대(Low / Medium / High) + '비슷하게 쓴 사용자의 실제 이탈률'
-  2) 주요 신호       : 입력한 내용에서 이탈과 관련이 컸던 신호를 골라 보여줌
-  3) 추천 리텐션 전략 : 위험 신호에 맞는 조치를 제안
+  1) 예측 결과       : 위험 단계 막대(Low / Medium / High) + 예측 확률(모델 연결 시) 또는
+                       '비슷하게 쓴 사용자의 실제 이탈률'(모델 연결 전)
+  2) 주요 신호       : 모델이 연결됐으면 진짜 SHAP 값, 아니면 EDA 에서 나온 참고 신호
+  3) 추천 리텐션 전략 : 위험 단계(또는 위험 신호)에 맞는 조치를 제안
 
-[중요: 아직 '모델 예측'이 아니에요]
-최종 모델이 연결되기 전이라 '위험 단계'는 비워 두고,
-대신 팀 분석(EDA)에서 나온 실제 숫자로 '참고 신호'를 보여줍니다.
-  예) 자기소개가 총 100자 이하 -> 이런 사용자의 실제 이탈률은 55.0%
-모델이 연결되면 아래 render_result_panel() 안의 risk_level 만 채우면 위험 단계가 켜져요.
+[모델 연결 전 / 후로 카드 내용이 달라져요]
+app.py 가 models 폴더에서 .cbm 파일을 찾으면 predict.predict_churn() 을 호출해서
+prediction 인자로 결과를 넘겨줘요. 그러면 이 파일은 진짜 예측값을 보여주고,
+prediction 이 없으면(모델 파일이 없을 때) 예전처럼 분석 결과(EDA) 기반 참고 신호를 보여줘요.
+어느 쪽이든 화면이 멈추지 않도록 만들어 뒀어요.
 
 [숫자는 어디서 오나요?]
-project_facts.py (팀 노트북 02_essay_deep_experiment 의 Train 데이터 EDA 결과)
+- EDA 참고 신호: project_facts.py (팀 노트북 02_essay_deep_experiment 의 Train 데이터 결과)
+- 진짜 예측값 : predict.py 가 불러온 CatBoost 모델
 """
 import re
 
@@ -119,9 +121,15 @@ def analyze_inputs(essays, has_kids, status):
 # 전략 이름 -> (아이콘, 설명). RETENTION 화면(page_retention.py)의 내용을 그대로 가져와요.
 STRATEGY_INFO = {title: (icon, text) for level in LEVELS for icon, title, text in level["actions"]}
 
+# 위험 단계('low'/'mid'/'high') -> RETENTION 화면의 전략 카드 전체
+LEVEL_BY_KIND = {level["kind"]: level for level in LEVELS}
+
+# feature 영문 이름 -> 화면에 보여줄 한글 이름. project_facts.FEATURE_GROUPS 를 펼쳐서 만들어요.
+FEATURE_LABELS = {code: name for _, items in facts.FEATURE_GROUPS for code, name in items}
+
 
 def _rate_color(rate):
-    """이탈률이 높을수록 빨강, 낮을수록 초록 (숫자 색)"""
+    """이탈률(%, 0~100)이 높을수록 빨강, 낮을수록 초록 (숫자 색)"""
     if rate >= 40:
         return "#c81e55"
     if rate >= 28:
@@ -131,57 +139,108 @@ def _rate_color(rate):
     return "#5a5a5a"
 
 
-def _card_prediction(info, risk_level=None):
-    """카드 1: 예측 결과. risk_level 은 나중에 모델이 채워 줄 값('low' / 'mid' / 'high')이에요."""
+def _prob_color(p):
+    """예측 확률(0~1)이 높을수록 빨강, 낮을수록 초록 (숫자 색). 기준은 RISK_THRESHOLDS 와 맞춤."""
+    t = facts.RISK_THRESHOLDS
+    if p >= t["high"]:
+        return "#c81e55"
+    if p >= t["mid"]:
+        return "#9a5a08"
+    return "#237a3f"
+
+
+def _card_prediction(info, prediction=None):
+    """카드 1: 예측 결과.
+
+    prediction 이 있으면(모델 연결됨) 진짜 예측 확률과 위험 단계를 보여주고,
+    없으면(모델 연결 전) 위험 단계 자리를 비워 둔 채 '비슷한 사용자의 실제 이탈률'을 참고로 보여줘요.
+    """
+    risk_level = prediction["level"] if prediction else None
     segments = ""
     for key, label in (("low", "Low"), ("mid", "Medium"), ("high", "High")):
         # 위험 단계를 아직 모르면(모델 연결 전) 세 칸 모두 흐리게, 알면 해당 칸만 또렷하게
         dim = " dim" if risk_level != key else ""
         segments += f'<span class="risk-seg {key}{dim}">{label}</span>'
-    note = ("모델이 연결되면 위험 단계가 여기에 표시돼요." if risk_level is None
-            else "모델이 예측한 위험 단계예요.")
 
-    group = info["group"]
-    if group:
-        color = _rate_color(group["rate"])
-        ref = (f'<div class="ref-box"><div class="ref-rate" style="color:{color}">{group["rate"]:.1f}%</div>'
-               f'<div class="ref-text"><b>비슷하게 쓴 사용자의 실제 이탈률</b><br>'
-               f'자기소개 {esc(group["row"])} · 칸당 {esc(group["col"])} · {group["n"]:,}명 기준</div></div>')
-    elif info["touched"]:
-        ref = ('<div class="ref-box"><div class="ref-text">자기소개를 입력하면, 비슷하게 쓴 사용자의 '
-               '<b>실제 이탈률</b>을 여기에 보여줘요.</div></div>')
+    if prediction:
+        ribbon, note = "모델 연결됨", "CatBoost 모델이 실제로 계산한 위험 단계예요."
+        p = prediction["risk"]
+        color = _prob_color(p)
+        ref = (f'<div class="ref-box"><div class="ref-rate" style="color:{color}">{p * 100:.1f}%</div>'
+               f'<div class="ref-text"><b>예측된 이탈 확률</b><br>'
+               f'평가 데이터 기준 상위 {"20" if risk_level == "high" else ("50" if risk_level == "mid" else "100")}%'
+               f' 안에 드는 위험도예요.</div></div>')
     else:
-        ref = ('<div class="ref-box"><div class="ref-text">정보를 입력하면, 비슷한 사용자의 '
-               '<b>실제 이탈률</b>을 여기에 보여줘요.</div></div>')
+        ribbon, note = "모델 연결 전", "모델이 연결되면 위험 단계가 여기에 표시돼요."
+        group = info["group"]
+        if group:
+            color = _rate_color(group["rate"])
+            ref = (f'<div class="ref-box"><div class="ref-rate" style="color:{color}">{group["rate"]:.1f}%</div>'
+                   f'<div class="ref-text"><b>비슷하게 쓴 사용자의 실제 이탈률</b><br>'
+                   f'자기소개 {esc(group["row"])} · 칸당 {esc(group["col"])} · {group["n"]:,}명 기준</div></div>')
+        elif info["touched"]:
+            ref = ('<div class="ref-box"><div class="ref-text">자기소개를 입력하면, 비슷하게 쓴 사용자의 '
+                   '<b>실제 이탈률</b>을 여기에 보여줘요.</div></div>')
+        else:
+            ref = ('<div class="ref-box"><div class="ref-text">정보를 입력하면, 비슷한 사용자의 '
+                   '<b>실제 이탈률</b>을 여기에 보여줘요.</div></div>')
 
-    return ('<div class="result-card"><span class="preview-ribbon">모델 연결 전</span>'
+    return (f'<div class="result-card"><span class="preview-ribbon">{ribbon}</span>'
             '<div class="result-title">📊 예측 결과</div>'
             f'<div class="risk-scale">{segments}</div><div class="result-note">{note}</div>{ref}</div>')
 
 
-def _card_signals(info):
-    """카드 2: 주요 신호"""
-    if info["signals"]:
+def _card_signals(info, prediction=None):
+    """카드 2: 주요 신호.
+
+    prediction 이 있으면 진짜 SHAP 값 상위 5개를, 없으면 EDA 기반 참고 신호를 보여줘요.
+    """
+    if prediction:
+        rows = ""
+        for code, value in prediction["top_signals"]:
+            name = FEATURE_LABELS.get(code, code)
+            up = value > 0                                  # 양수 = 위험을 높이는 쪽
+            icon, kind = ("⬆️", "warn") if up else ("⬇️", "ok")
+            stat = f"위험을 {'높이는' if up else '낮추는'} 쪽으로 작용 (영향도 {abs(value):.2f})"
+            rows += (f'<div class="sig-row {kind}"><div class="sig-icon">{icon}</div><div>'
+                     f'<div class="sig-title">{esc(name)}</div><div class="sig-stat">{esc(stat)}</div></div></div>')
+        sub = "이 사용자의 예측에 실제로 영향을 준 항목이에요 (SHAP, 영향 큰 순서)."
+        body = rows
+    elif info["signals"]:
         rows = ""
         for kind, title, stat in info["signals"]:
             icon = "⚠️" if kind == "warn" else "✅"
             rows += (f'<div class="sig-row {kind}"><div class="sig-icon">{icon}</div><div>'
                      f'<div class="sig-title">{esc(title)}</div><div class="sig-stat">{esc(stat)}</div></div></div>')
+        sub = "지금은 분석 결과(EDA) 기준이에요. 모델이 연결되면 SHAP 값으로 바뀌어요."
         body = rows
     else:
         checks = "".join(f'<span class="chip">{c}</span>' for c in
                          ("자기소개 분량", "자기소개 링크", "자녀 항목 응답", "관계 상태"))
+        sub = "지금은 분석 결과(EDA) 기준이에요. 모델이 연결되면 SHAP 값으로 바뀌어요."
         body = ('<div class="placeholder" style="margin-top:0">정보를 입력하면 이탈률 차이가 컸던 신호를 '
                 f'여기에 골라서 보여줘요.</div><div style="margin-top:12px">{checks}</div>')
     return ('<div class="result-card"><div class="result-title">🔍 주요 신호</div>'
-            '<div class="dash-sub" style="margin-top:-8px">지금은 분석 결과(EDA) 기준이에요. '
-            '모델이 연결되면 SHAP 값으로 바뀌어요.</div>'
+            f'<div class="dash-sub" style="margin-top:-8px">{esc(sub)}</div>'
             f'{body}</div>')
 
 
-def _card_strategies(info):
-    """카드 3: 추천 리텐션 전략"""
-    if info["strategies"]:
+def _card_strategies(info, prediction=None):
+    """카드 3: 추천 리텐션 전략.
+
+    prediction 이 있으면 예측된 위험 단계(Low/Medium/High)의 RETENTION 전략을 전부 보여주고,
+    없으면 지금까지처럼 입력값에서 찾은 신호에 맞는 전략만 골라서 보여줘요.
+    """
+    if prediction:
+        level = LEVEL_BY_KIND[prediction["level"]]
+        rows = ""
+        for icon, name, text in level["actions"]:
+            rows += (f'<div class="strat-row"><div class="strat-icon">{icon}</div><div>'
+                     f'<div class="sig-title">{esc(name)}</div><div class="sig-stat">{esc(text)}</div></div></div>')
+        header = (f'<div class="dash-sub" style="margin-top:-8px">'
+                  f'{esc(level["name"])} 단계에 맞는 RETENTION 화면의 전략이에요.</div>')
+        body = header + rows
+    elif info["strategies"]:
         rows = ""
         for name in info["strategies"]:
             icon, text = STRATEGY_INFO.get(name, ("✨", ""))
@@ -198,16 +257,17 @@ def _card_strategies(info):
             f'{body}</div>')
 
 
-def render_result_panel(essays, has_kids, status, clicked=False, risk_level=None):
+def render_result_panel(essays, has_kids, status, clicked=False, prediction=None):
     """결과 칸 전체를 그린다. app.py 의 SERVICE 화면 오른쪽 칸에서 호출해요.
 
     clicked    : '이탈 위험 분석하기' 버튼을 눌렀는지
-    risk_level : 모델이 연결되면 'low' / 'mid' / 'high' 를 넘겨 주세요. (지금은 None)
+    prediction : 모델이 연결됐으면 predict.predict_churn() 의 반환값을, 아니면 None 을 넘겨 주세요.
     """
     info = analyze_inputs(essays, has_kids, status)
-    if clicked:
-        # 버튼을 눌러도 아직 모델이 없어서, 무엇이 표시되는지 알려 줍니다.
-        show(note_box("아직 예측 모델이 연결되지 않았어요. 아래는 분석 결과(EDA)에서 나온 실제 이탈률로 만든 참고 신호예요."))
-    show(_card_prediction(info, risk_level))
-    show(_card_signals(info))
-    show(_card_strategies(info))
+    if clicked and prediction is None:
+        # 버튼을 눌렀는데 모델 파일을 못 찾은 경우, 무엇이 표시되는지 알려 줍니다.
+        show(note_box("models 폴더에서 예측 모델(.cbm)을 찾지 못했어요. 아래는 분석 결과(EDA)에서 "
+                      "나온 실제 이탈률로 만든 참고 신호예요."))
+    show(_card_prediction(info, prediction))
+    show(_card_signals(info, prediction))
+    show(_card_strategies(info, prediction))

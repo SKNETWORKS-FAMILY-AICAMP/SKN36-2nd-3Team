@@ -98,7 +98,7 @@ def _tab_data():
     subtitles = ["사용자 자신에 대한 기본 정보예요.",
                  "학력, 종교, 생활 습관에 대한 응답이에요.",
                  "자녀에 대한 응답이에요. 무응답인지 여부도 하나의 항목이에요.",
-                 "얼마나 성실히 채웠는지를 나타내요. 25개 중 9개가 여기에 속해요."]
+                 "얼마나 성실히 채웠는지를 나타내요. 20개 중 5개가 여기에 속해요."]
     g1, g2 = st.columns(2, gap="large")
     for i, ((name, items), sub) in enumerate(zip(facts.FEATURE_GROUPS, subtitles)):
         with (g1 if i % 2 == 0 else g2):
@@ -139,7 +139,7 @@ def _tab_model():
     show(note_box("이렇게 읽어요: Recall 이 약 70% 라서 실제 이탈자 10명 중 7명을 찾아내요. 대신 Precision 이 약 41% 라서 "
                   "이탈로 예측한 사람 중 절반 이상은 사실 이탈하지 않아요(오탐). 이탈자가 전체의 25.7% 로 적은 데이터라 "
                   "Accuracy 보다 Recall · PR-AUC 를 중심으로 봤어요."))
-    show(note_box(f"3-Fold 교차검증 평균 ROC-AUC 는 {facts.CV_ROC_AUC:.3f} 예요. {facts.MODEL_CAVEAT}"))
+    show(note_box(f"5-Fold 교차검증 평균 ROC-AUC 는 {facts.CV_ROC_AUC:.3f} 예요. {facts.MODEL_CAVEAT}"))
 
 
 def _tab_limits():

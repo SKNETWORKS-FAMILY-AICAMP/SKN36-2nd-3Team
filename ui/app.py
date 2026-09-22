@@ -15,7 +15,6 @@
 [파일 구성 — 모두 ui 폴더 안]
 - app.py            : (이 파일) SERVICE 화면 + 메뉴 이동
 - page_home.py      : HOME 화면 (서비스 소개)
-- service_view.py   : SERVICE 화면 오른쪽 '결과 칸' (입력 분석 + 카드 3장)
 - page_insight.py   : INSIGHT 화면 (이탈 위험 사용자 분석 대시보드)
 - page_retention.py : RETENTION 화면 (위험 수준별 리텐션 전략)
 - page_about.py     : ABOUT 화면 (프로젝트·모델 정보)
@@ -24,7 +23,8 @@
 - ui_parts.py       : 세 화면이 함께 쓰는 카드·그래프·표 조각
 - styles.py         : 색, 글자 크기 같은 디자인(CSS)
 - avatars.py        : 프로필 예시 얼굴 그리기
-- predict.py        : 예측(모델) 담당. 최종 모델이 정해지면 채울 예정
+- predict.py        : 예측(모델) 담당. 화면 입력값 -> 20개 feature 표 변환, 모델 예측, SHAP 계산
+- service_view.py   : SERVICE 화면 오른쪽 '결과 칸'. 모델 연결 전/후로 카드 내용이 자동으로 바뀌어요
 
 [실행 방법]  프로젝트 맨 바깥 폴더에서:  uv run streamlit run ui/app.py
 """
@@ -48,6 +48,7 @@ from styles import apply_styles        # styles.py  : CSS(디자인)
 from avatars import input_card_html    # avatars.py : 프로필 예시 얼굴이 들어간 입력 카드
 # 메뉴별 화면은 파일을 따로 두었어요. (as 뒤는 이 파일에서 부를 이름표)
 from service_view import render_result_panel               # SERVICE 오른쪽 결과 칸
+from predict import find_model_path, load_model, predict_churn   # 예측 모델 연결
 from page_home import render as render_home                # HOME      메뉴 화면
 from page_insight import render as render_insight        # INSIGHT   메뉴 화면
 from page_retention import render as render_retention    # RETENTION 메뉴 화면
@@ -56,6 +57,22 @@ from page_about import render as render_about            # ABOUT     메뉴 화�
 # 디자인 규칙(CSS)을 화면에 적용합니다.
 # 이 줄이 없으면 핑크 테마가 모두 사라지고 스트림릿 기본 모양으로 나와요.
 apply_styles()
+
+
+# models 폴더에서 .cbm 파일을 찾아 한 번만 불러옵니다. (없으면 None -> EDA 참고 신호로 대신함)
+# @st.cache_resource 가 없으면 화면을 조작할 때마다 매번 모델을 다시 읽어서 느려져요.
+@st.cache_resource
+def _load_churn_model():
+    path = find_model_path()
+    if path is None:
+        return None
+    try:
+        return load_model(path)
+    except Exception:
+        return None
+
+
+churn_model = _load_churn_model()
 
 # =========================================================
 # 페이지 이동 (HOME 버튼 -> SERVICE)
@@ -195,33 +212,38 @@ CHURN RISK PREDICTION
             # 그래서 {"화면에 보이는 한글": "모델이 아는 값"} 짝꿍표(dict)를 만들어 둡니다.
             # 아무것도 고르지 않았거나 모르는 경우는 None(= 빈칸)으로 처리해요.
             #
-            # ⚠️ TODO (모델 연결 때 손볼 곳)
-            #   지금 영어 값 중 일부는 임시라서 학습 데이터의 값과 글자가 다릅니다.
-            #   최종 feature 가 확정되면 predict.py 에서 아래처럼 맞출 예정이에요.
-            #   (기준: 노션 '데이터 전처리 결과서'의 최종 25개 feature)
-            #   - 직업       : 원본 21종('science / tech / engineering' 등)이라 지금 값과 다름
-            #   - 학력/상태  : 'college/university', 'graduated from' 같은 형태
-            #   - 식단 엄격도: '신경 안 씀' 은 'plain'
-            #   - 흡연/약물  : 글자가 아니라 등급 숫자 (흡연 0~4, 약물 0~2)
-            #   - 자녀 유무  : 'no' / 'yes' / 'unspecified' / 'not_disclosed' 4가지 (+ 무응답 여부 플래그 has_kids_na)
-            #   - 소득 비공개: 숫자가 아닌 '결측(NaN)'으로 (-1 이 아님)
-            #   - 빈칸 처리  : 글자(범주형) 항목의 빈칸은 'not_disclosed' 라는 별도 값으로 남기고,
-            #                  숫자 항목의 빈칸은 NaN 그대로 둡니다. (CatBoost 가 알아서 처리)
-            #                  그래서 아래 '미응답 -> not_disclosed' 는 학습 방식과 맞는 값이에요.
+            # 아래 선택지 값들은 common/feature_extraction.py (최종 확정판)이 실제로 배운
+            # 카테고리와 글자까지 똑같이 맞춰 뒀어요. (다르면 모델이 '모르는 값' 취급을 해요)
+            # 등급 숫자로 바뀌는 흡연/약물, 자녀 무응답 플래그(has_kids_na), 소득 비공개(NaN),
+            # 프로필 완성도 계산 같은 나머지 변환은 predict.py 의 build_feature_row() 가 맡아요.
             # ────────────────────────────────────────────────────────────
 
             # 직업
+            # 원본 데이터 파일(okcupid_profiles.csv)의 job 컬럼을 직접 확인해서
+            # value_counts() 로 나온 21개 값을 전부 그대로 옮겨 적었어요. (2026-09-22 확인)
             job_map = {
                 "선택해주세요": None,
+                "기타": "other",
                 "학생": "student",
-                "IT · 기술": "technology",
-                "교육": "education",
-                "의료": "medicine",
-                "비즈니스 · 경영": "business",
-                "금융": "finance",
-                "예술": "arts",
-                "영업 · 판매": "sales",
-                "기타": "other"
+                "과학 · 기술 · 공학": "science / tech / engineering",
+                "컴퓨터 · 하드웨어 · 소프트웨어": "computer / hardware / software",
+                "예술 · 음악 · 글쓰기": "artistic / musical / writer",
+                "영업 · 마케팅 · 사업 개발": "sales / marketing / biz dev",
+                "의료 · 건강": "medicine / health",
+                "교육 · 학계": "education / academia",
+                "경영 · 임원": "executive / management",
+                "금융 · 은행 · 부동산": "banking / financial / real estate",
+                "엔터테인먼트 · 미디어": "entertainment / media",
+                "법률": "law / legal services",
+                "숙박 · 여행": "hospitality / travel",
+                "건설 · 기술직": "construction / craftsmanship",
+                "사무 · 행정": "clerical / administrative",
+                "정치 · 공공행정": "political / government",
+                "운수업": "transportation",
+                "무직": "unemployed",
+                "은퇴": "retired",
+                "군인": "military",
+                "미응답": "rather not say",
             }
 
             job_kr = st.selectbox(
@@ -273,14 +295,17 @@ CHURN RISK PREDICTION
         with st.expander("🎓 학력 및 종교"):
 
             # 학력
+            # ⚠️ 수정: 예전 값("college","university","masters","ph.d")은 모델이 학습한
+            #    카테고리와 글자가 달라서 전부 '모르는 값' 취급을 받고 있었어요. 최종
+            #    feature_extraction.py 가 실제로 쓰는 문자열로 맞췄어요. ("기타"는 모델이
+            #    학습한 카테고리에 없어서 '선택 안 함(미응답)'과 동일하게 처리돼요)
             education_map = {
                 "선택해주세요": None,
                 "고등학교": "high school",
-                "전문대학": "college",
-                "대학교": "university",
-                "석사": "masters",
-                "박사": "ph.d",
-                "기타": "other"
+                "전문대학": "two-year college",
+                "대학교": "college/university",
+                "석사": "masters program",
+                "박사": "ph.d program",
             }
 
             education_kr = st.selectbox(
@@ -291,12 +316,14 @@ CHURN RISK PREDICTION
             education = education_map[education_kr]
 
             # 교육 상태
+            # ⚠️ 수정: "graduated"/"dropped out"은 모델 카테고리와 한 글자씩 달라서(뒤에 " from"/" of"가
+            #    빠짐) 모르는 값 취급을 받고 있었어요. "미응답": "unknown"도 edu_status 에는 없는
+            #    카테고리라 지우고 선택 안 함(None)과 같게 뒀어요.
             education_status_map = {
                 "선택해주세요": None,
-                "졸업": "graduated",
+                "졸업": "graduated from",
                 "재학 중": "working on",
-                "중퇴": "dropped out",
-                "미응답": "unknown"
+                "중퇴": "dropped out of",
             }
 
             education_status_kr = st.selectbox(
@@ -353,11 +380,13 @@ CHURN RISK PREDICTION
             diet_type = diet_type_map[diet_type_kr]
 
             # 식단 준수 정도
+            # ⚠️ 수정: "특별히 신경 쓰지 않음"이 diet_type 의 값("anything")으로 잘못 들어가 있었어요.
+            #    diet_strict 의 '신경 안 씀'에 해당하는 실제 카테고리는 "plain"이에요.
             diet_strict_map = {
                 "선택해주세요": None,
                 "대체로 지킴": "mostly",
                 "엄격하게 지킴": "strictly",
-                "특별히 신경 쓰지 않음": "anything",
+                "특별히 신경 쓰지 않음": "plain",
                 "미응답": "not_disclosed"
             }
 
@@ -369,13 +398,16 @@ CHURN RISK PREDICTION
             diet_strict = diet_strict_map[diet_strict_kr]
 
             # 흡연
+            # ⚠️ 수정: "피우지 않음"/"자주 피움"이 "never"/"often"으로 되어 있었는데, 모델이
+            #    실제로 배운 값은 "no"/"yes"예요. (predict.py 의 SMOKES 짝꿍표와 글자가
+            #    같아야 등급 숫자로 바뀔 수 있어요)
             smoking_map = {
                 "선택해주세요": None,
-                "피우지 않음": "never",
+                "피우지 않음": "no",
                 "가끔 피움": "sometimes",
                 "술 마실 때만 피움": "when drinking",
                 "금연 중": "trying to quit",
-                "자주 피움": "often",
+                "자주 피움": "yes",
                 "미응답": "not_disclosed"
             }
 
@@ -521,10 +553,8 @@ CHURN RISK PREDICTION
                 )
 
         # 분석 버튼. 눌린 순간에만 predict_button 이 True 가 됩니다.
-        # TODO (모델 연결 때): 아래처럼 predict.py 의 함수를 불러 결과를 오른쪽 카드에 표시할 예정
-        #   from predict import predict_churn
-        #   if predict_button:
-        #       result = predict_churn({"age": age, "height": height, "job": job, ...})
+        # 모델은 이 파일 위쪽에서 한 번만 불러놨어요(churn_model). 버튼을 누르면 predict_churn() 으로
+        # 실제 예측을 하고, models 폴더에 .cbm 파일이 없으면 churn_model 이 None 이라 EDA 참고 신호로 대신해요.
         predict_button = st.button(
             "💘 이탈 위험 분석하기",
             use_container_width=True     # 버튼을 칸 너비에 꽉 채움
@@ -534,16 +564,25 @@ CHURN RISK PREDICTION
     # 오른쪽 : 예측 결과
     # =====================================================
     with result_col:
-        # 결과 칸은 service_view.py 가 채워요. 입력한 자기소개·자녀·관계 상태를 분석해서
-        # 카드 3장(예측 결과 / 주요 신호 / 추천 리텐션 전략)을 그립니다.
-        # 아직 모델이 없어서 '위험 단계'는 비워 두고, 분석(EDA)에서 나온 실제 이탈률로 참고 신호를 보여줘요.
-        # TODO (모델 연결 때): risk_level 에 predict.py 의 예측 결과('low' / 'mid' / 'high')를 넘기면
-        #                      위험 단계 막대가 켜집니다.
+        # 결과 칸은 service_view.py 가 채워요. models 폴더에 모델(.cbm)이 있으면 진짜 예측을,
+        # 없으면 예전처럼 분석 결과(EDA) 기반 참고 신호를 보여줍니다. (앱은 어느 쪽이든 안 멈춰요)
+        essays = [essay0, essay1, essay2, essay3, essay4, essay5, essay6, essay7, essay8, essay9]
+
+        prediction = None
+        if predict_button and churn_model is not None:
+            prediction = predict_churn({
+                "age": age, "height": height, "job": job, "status": status, "income": income,
+                "education": education, "education_status": education_status, "religion": religion,
+                "diet_type": diet_type, "diet_strict": diet_strict, "smoking": smoking, "drugs": drugs,
+                "has_kids": has_kids, "wants_kids": wants_kids, "essays": essays,
+            }, churn_model)
+
         render_result_panel(
-            essays=[essay0, essay1, essay2, essay3, essay4, essay5, essay6, essay7, essay8, essay9],
+            essays=essays,
             has_kids=has_kids,
             status=status,
             clicked=predict_button,
+            prediction=prediction,
         )
 
 

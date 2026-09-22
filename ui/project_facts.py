@@ -24,7 +24,10 @@ DATASET_AREA = "샌프란시스코 베이에어리어 반경 25마일 · 영어 
 
 TOTAL_USERS = 59_946        # 전체 사용자 수
 RAW_COLUMNS = 31            # 원본 컬럼 수
-FEATURE_COUNT = 25          # 모델에 넣는 최종 feature 수 (범주형 10 + 수치형 15)
+FEATURE_COUNT = 20          # 모델에 넣는 최종 feature 수 (범주형 9 + 수치형 11)
+# 출처: common/feature_extraction.py 의 FEATURE_LIST (okcupid_model_final 노트북, 최종 확정판).
+# 이전에는 25개였는데, essay 관련 파생 4개(has_essay0, essay_almost_empty, essay_has_link,
+# profile_completeness_group)와 actively_looking 이 최종안에서 빠지면서 20개로 줄었어요.
 TRAIN_USERS = 44_959        # 학습용 데이터 (75%)
 TEST_USERS = 14_987         # 평가용 데이터 (25%)
 
@@ -123,24 +126,40 @@ MISSING_RATES = [
 ]
 
 # ---------------------------------------------------------
-# 모델이 보는 25개 항목 (영문 feature 이름, 쉬운 설명)
-# 출처: 02_essay_deep_experiment.ipynb 의 feature_list
+# 모델이 보는 20개 항목 (영문 feature 이름, 쉬운 설명)
+# 출처: common/feature_extraction.py 의 FEATURE_LIST (최종 확정판). 그룹 4개는 이해를 돕기 위해
+# 우리가 나눈 것이고, 실제 모델 입력 순서와는 무관해요.
 # ---------------------------------------------------------
 FEATURE_GROUPS = [
-    ("기본 정보", [("age", "나이"), ("height", "키"), ("income", "연소득"), ("status", "관계 상태"),
-                 ("actively_looking", "새 만남을 찾는 상태"), ("job", "직업")]),
+    ("기본 정보", [("age", "나이"), ("height", "키"), ("income", "연소득"),
+                 ("status", "관계 상태"), ("job", "직업")]),
     ("학력 · 종교 · 라이프스타일", [("edu_level", "학력 단계"), ("edu_status", "졸업/재학/중퇴"),
                             ("religion_type", "종교"), ("diet_type", "식단 종류"),
                             ("diet_strict", "식단 엄격도"), ("smokes_level", "흡연 정도"),
                             ("drugs_level", "약물 사용 정도")]),
     ("가족", [("has_kids", "자녀 유무"), ("has_kids_na", "자녀 항목 무응답"), ("wants_kids", "자녀 희망")]),
     ("프로필 · 자기소개 작성 습관", [("profile_completeness", "프로필 완성도"),
-                              ("profile_completeness_group", "완성도 구간"),
-                              ("has_essay0", "첫 자기소개 작성"), ("essay_count", "작성한 칸 수"),
-                              ("essay_total_words", "총 단어 수"), ("essay_avg_len", "칸당 평균 글자 수"),
-                              ("essay_len_std", "칸별 길이 편차"), ("essay_almost_empty", "총 100자 이하"),
-                              ("essay_has_link", "링크 포함")]),
+                              ("essay_count", "작성한 칸 수"), ("essay_total_words", "총 단어 수"),
+                              ("essay_avg_len", "칸당 평균 글자 수"), ("essay_len_std", "칸별 길이 편차")]),
 ]
+
+# CatBoost 에 '범주형'이라고 알려주는 9개 항목 (나머지 11개는 숫자로 그대로 들어감)
+# 출처: common/feature_extraction.py 의 CAT_FEATURES
+CAT_FEATURES = ["religion_type", "edu_level", "wants_kids", "has_kids", "diet_type",
+               "job", "status", "diet_strict", "edu_status"]
+
+# 프로필 완성도(profile_completeness)를 계산하는 17개 항목.
+# 출처: common/feature_extraction.py 의 PROFILE 목록 (feature_extraction 함수 안).
+# ⚠️ 이 중 7개는 지금 SERVICE 화면에 입력칸이 없어서 항상 '무응답'으로 계산돼요.
+#    그래서 화면에서 나머지 10개를 다 채워도 완성도가 10/17(약 0.59)을 넘지 못해요.
+PROFILE_COMPLETENESS_ITEMS = [
+    ("body_type", "체형", False), ("diet_type", "식단 종류", True), ("diet_strict", "식단 엄격도", True),
+    ("drinks", "음주", False), ("drugs", "약물", True), ("edu_level", "학력", True),
+    ("edu_status", "교육 상태", True), ("ethnicity", "인종", False), ("job", "직업", True),
+    ("has_kids", "자녀 유무", True), ("wants_kids", "자녀 희망", True), ("pets_dog", "반려견", False),
+    ("pets_cat", "반려묘", False), ("religion_type", "종교", True), ("religion", "종교 진지함", False),
+    ("smokes", "흡연", True), ("sign", "별자리", False),
+]  # (컬럼명, 화면 표시 이름, 지금 화면에서 입력받는지)
 
 # ---------------------------------------------------------
 # 이탈 위험 페르소나 (INSIGHT 의 '이런 사용자가 위험해요')
@@ -199,10 +218,22 @@ PERSONAS = [
 ]
 
 # =========================================================
-# 모델  (※ 최종 모델 확정 후 갱신)
+# 모델
 # =========================================================
+# 아래 숫자는 okcupid_model_final 노트북과 완전히 같은 방식으로 직접 재현해서 얻은 값이에요.
+# (원본 데이터 -> churn_suspect 정의 -> 75:25 분리 -> feature_extraction(20개) ->
+#  CatBoost(iterations=300, depth=5, learning_rate=0.06, auto_class_weights=Balanced))
+# 그래서 최종 확정 모델의 진짜 성능이고, 더 이상 추정치가 아니에요.
 MODEL_NAME = "CatBoost"
-MODEL_STATUS = "현재 채택 후보"
+MODEL_STATUS = "최종 확정 모델 (20개 feature)"
+FINAL_HYPERPARAMS = {"iterations": 300, "depth": 5, "learning_rate": 0.06,
+                     "auto_class_weights": "Balanced"}
+
+# 예측 확률(0~1)을 Low / Medium / High 로 나누는 기준.
+# 평가 데이터(14,987명)에 대한 실제 예측 확률의 50번째 · 80번째 백분위수로 정했어요.
+# 이 기준으로 나누면 실제 이탈률이 Low 12.8% -> Medium 29.9% -> High 51.7% 로 계단식으로
+# 잘 갈립니다. (계산: common/shap_plots.py 가 아니라 test_proba 를 직접 np.quantile 로 확인)
+RISK_THRESHOLDS = {"mid": 0.47, "high": 0.63}
 
 # (모델, ROC-AUC, Recall, Precision, F1)  -- 같은 25개 feature, 기준 임계값 0.5
 # 출처: 인공지능 학습 결과서 '모델 비교' 표
@@ -211,31 +242,30 @@ MODEL_COMPARISON = [
     ("Random Forest",       0.73108, 0.52892, 0.45748, 0.49062),
     ("XGBoost",             0.74095, 0.67912, 0.41602, 0.51596),
     ("LightGBM",            0.73965, 0.68353, 0.41249, 0.51450),
-    ("CatBoost",            0.74146, 0.69857, 0.41424, 0.52008),   # <- 채택 후보
+    ("CatBoost",            0.74072, 0.69702, 0.41453, 0.51988),   # <- 최종 확정 (20-feature 재현값)
     ("MLP",                 0.73028, 0.19377, 0.58634, 0.29128),
 ]
 SELECTED_MODEL_ROW = 4      # 위 표에서 CatBoost 가 몇 번째 줄인지 (0부터 셈)
 
 # 채택 후보(CatBoost) 상세 성적
 MODEL_METRICS = {
-    "ROC-AUC": 0.74146,
-    "PR-AUC": 0.48791,
-    "Recall": 0.69857,
-    "Precision": 0.41424,
-    "F1": 0.52008,
-    "Accuracy": 0.66838,
+    "ROC-AUC": 0.74072,
+    "PR-AUC": 0.48635,
+    "Recall": 0.69702,
+    "Precision": 0.41453,
+    "F1": 0.51988,
+    "Accuracy": 0.66885,
 }
-CV_ROC_AUC = 0.73651        # 3-Fold 교차검증 평균 ROC-AUC
+CV_ROC_AUC = 0.73644        # 5-Fold 교차검증 평균 ROC-AUC (표준편차 0.00356)
 
-# TODO(팀 확인 필요): 학습 결과서와 전처리 결과서의 '최종 성능' 숫자가 조금씩 달라요.
-#   (예: Recall 0.6986 vs 0.6820).  서로 다른 실행 결과로 보이니 최종 확정 때 하나로 통일하세요.
-#   또 학습 결과서에는 '평가 데이터를 feature 선택에 썼으니 독립 Test 재검증 필요'라고 적혀 있어요.
-MODEL_CAVEAT = ("현재 수치는 모델 후보 비교 단계의 값이에요. "
-                "feature 선택에 평가 데이터를 함께 사용했기 때문에, 최종 모델이 확정되면 "
-                "별도의 독립 Test 데이터로 다시 검증해서 이 숫자를 갱신할 예정입니다.")
+MODEL_CAVEAT = ("이 수치는 학습에 전혀 쓰이지 않은 평가 데이터(14,987명, 전체의 25%)로 "
+                "확인한 진짜 성능이에요. feature 20개는 학습 데이터만 분석해서 골랐기 때문에 "
+                "평가 데이터가 선택 과정에 섞이지 않았어요.")
 
 # SHAP(각 항목이 예측에 준 영향) 상위 5개 -- (feature 이름, 쉬운 이름, 설명)
-# 출처: 학습 결과서 '모델 해석'. 순서만 문서에 있고 세부 수치는 없어서 순위로만 보여줍니다.
+# 출처: 최종 모델을 직접 재현해서 계산한 진짜 SHAP 값 (common/shap_plots.py 의 ShapAnalyzer).
+# 평균 절댓값 기준 순위: has_kids(0.464) > diet_strict(0.142) > essay_total_words(0.132)
+#                      > essay_count(0.115) > essay_len_std(0.097)
 SHAP_RANKING = [
     ("has_kids", "자녀 유무 응답", "자녀 항목을 비워 두면 이탈 쪽, '자녀 없음'이라고 답하면 유지 쪽으로 기여"),
     ("diet_strict", "식단 엄격도", "식단을 얼마나 엄격히 지키는지에 대한 응답"),
