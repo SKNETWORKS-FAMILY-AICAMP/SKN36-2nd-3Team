@@ -15,10 +15,275 @@
 
 app.py 에서 render() 를 호출하면 이 화면이 그려져요.
 """
+import re
 import streamlit as st
 
+import db
 import project_facts as facts
-from ui_parts import action_card, note_box, page_header, section_title, show, signal_card, tag
+from insight_data import STATUS_LABELS
+from ui_parts import (
+    action_card,
+    check_list_card,
+    kpi_card,
+    note_box,
+    page_header,
+    placeholder_card,
+    rate_bars_card,
+    section_title,
+    show,
+    signal_card,
+    table_card,
+    tag,
+)
+
+# ---------------------------------------------------------
+# A/B 테스트 (sqlonly/ab_test) — 배정 공정성 확인 · 30일 후 결과 비교
+# 쿼리는 sqlonly/ab_test/03_measure.sql 의 ②, ③번을 그대로 옮겨 왔어요.
+# ---------------------------------------------------------
+AB_EXPERIMENT = "젤리보상"
+
+_AB_BALANCE_SQL = """
+    SELECT arm AS 집단, COUNT(*) AS 인원,
+           ROUND(AVG(p.churn_prob)::numeric * 100, 1) AS 평균위험도
+    FROM ab_assignment a
+    JOIN predictions p USING (user_id)
+    WHERE a.experiment = %(exp)s
+    GROUP BY arm
+"""
+
+_AB_RESULT_SQL = """
+    SELECT
+        a.arm                                          AS 집단,
+        COUNT(*)                                       AS 인원,
+        ROUND(AVG(o.retained_30d)::numeric * 100, 1)   AS 잔존율,
+        ROUND(AVG(o.profile_edited)::numeric * 100, 1) AS 프로필수정률
+    FROM ab_assignment a
+    JOIN outcomes o USING (user_id)
+    WHERE a.experiment = %(exp)s
+    GROUP BY a.arm
+    ORDER BY a.arm
+"""
+def _reason_base_name(reason: str) -> str:
+    """'자녀 유무 (위험↑)' → '자녀 유무'처럼 전략 매핑용 이름만 남긴다."""
+    return re.sub(r"\s*\((위험↑|안정↓)\)\s*$", "", str(reason or "")).strip()
+
+
+def _strategy_for_reason(reason: str) -> str:
+    base_name = _reason_base_name(reason)
+    return facts.REASON_TO_STRATEGY.get(
+        base_name,
+        facts.REASON_TO_STRATEGY_DEFAULT,
+    )
+
+
+_RISK_OPTIONS = {
+    "전체": None,
+    "High": "High",
+    "Medium": "Medium",
+    "Low": "Low",
+}
+
+_COMPLETENESS_OPTIONS = {
+    "전체": None,
+    **{
+        label: i + 1
+        for i, label in enumerate(facts.SEGMENT_COMPLETENESS_LABELS)
+    },
+}
+
+_ESSAY_OPTIONS = {"전체": (None, None)}
+for label, lower, upper in zip(
+    facts.SEGMENT_ESSAY_LABELS,
+    facts.SEGMENT_ESSAY_BINS[:-1],
+    facts.SEGMENT_ESSAY_BINS[1:],
+):
+    _ESSAY_OPTIONS[label] = (lower + 1, upper)
+
+_AGE_OPTIONS = {"전체": (None, None)}
+for label, lower, upper in zip(
+    facts.SEGMENT_AGE_LABELS,
+    facts.SEGMENT_AGE_BINS[:-1],
+    facts.SEGMENT_AGE_BINS[1:],
+):
+    _AGE_OPTIONS[label] = (lower + 1, upper)
+
+_STATUS_OPTIONS = {
+    "전체": None,
+    **{korean: raw for raw, korean in STATUS_LABELS.items()},
+}
+
+
+def _sql_targeting_section():
+    section_title(
+        "조건에 맞는 대상자 찾기",
+        "실제 예측 데이터를 바탕으로 이탈 위험군을 탐색합니다.",
+    )
+
+    col1, col2, col3, col4, col5 = st.columns(5)
+
+    with col1:
+        risk_label = st.selectbox(
+            "이탈 위험 등급",
+            list(_RISK_OPTIONS.keys()),
+            key="segment_risk",
+        )
+
+    with col2:
+        completeness_label = st.selectbox(
+            "프로필 완성도",
+            list(_COMPLETENESS_OPTIONS.keys()),
+            key="segment_completeness",
+        )
+
+    with col3:
+        essay_label = st.selectbox(
+            "자기소개 작성 수준",
+            list(_ESSAY_OPTIONS.keys()),
+            key="segment_essay",
+        )
+
+    with col4:
+        status_label = st.selectbox(
+            "관계 상태",
+            list(_STATUS_OPTIONS.keys()),
+            key="segment_status",
+        )
+
+    with col5:
+        age_label = st.selectbox(
+            "연령대",
+            list(_AGE_OPTIONS.keys()),
+            key="segment_age",
+        )
+
+    age_min, age_max = _AGE_OPTIONS[age_label]
+    essay_min, essay_max = _ESSAY_OPTIONS[essay_label]
+
+    result = db.query_segment(
+        risk_tier=_RISK_OPTIONS[risk_label],
+        age_min=age_min,
+        age_max=age_max,
+        essay_min=essay_min,
+        essay_max=essay_max,
+        status=_STATUS_OPTIONS[status_label],
+        completeness_tier=_COMPLETENESS_OPTIONS[completeness_label],
+        limit=facts.SEGMENT_LIST_LIMIT,
+    )
+
+    if result is None:
+        placeholder_card(
+            "SQL 데이터 연결이 필요해요",
+            "PostgreSQL 연결 후 조건별 대상자와 위험 신호를 확인할 수 있습니다.",
+        )
+        return
+
+    if result["n"] == 0:
+        note_box(
+            "해당 조건에 맞는 사용자가 없습니다.",
+            "필터 조건을 조금 넓혀 다시 확인해 보세요.",
+            tone="info",
+        )
+        return
+
+    metric1, metric2, metric3 = st.columns(3)
+
+    with metric1:
+        kpi_card("조건에 맞는 대상자", f"{result['n']:,}명")
+
+    with metric2:
+        avg_prob = result["avg_prob"] or 0
+        kpi_card("평균 이탈 확률", f"{avg_prob * 100:.1f}%")
+
+    with metric3:
+        high_share = result["high_share"] or 0
+        kpi_card("High 위험군 비율", f"{high_share * 100:.1f}%")
+
+    st.markdown("")
+
+    if result["reasons"]:
+        section_title(
+            "이 집단의 주요 이탈 신호",
+            "선택한 집단에서 가장 자주 나타나는 1순위 위험 신호입니다.",
+        )
+
+        reason_rows = [
+            {
+                "label": _reason_base_name(reason),
+                "value": float(count),
+                "text": f"{count:,}명",
+            }
+            for reason, count in result["reasons"]
+        ]
+        show(rate_bars_card(
+        "가장 흔한 이탈 위험 신호 TOP 5",
+        "선택한 사용자 집단에서 1순위로 많이 나타난 예측 신호입니다.",
+        reason_rows,
+    ))
+
+    st.markdown("")
+    section_title(
+        "우선 확인할 대상자",
+        f"이탈 확률이 높은 순으로 최대 {facts.SEGMENT_LIST_LIMIT}명을 보여줍니다.",
+    )
+
+    table_rows = [
+        {
+            "익명 ID": str(user_id),
+            "위험 등급": risk_tier,
+            "이탈 확률": f"{churn_prob * 100:.1f}%",
+            "주요 위험 신호": _reason_base_name(reason),
+            "추천 전략": _strategy_for_reason(reason),
+        }
+        for user_id, risk_tier, churn_prob, reason in result["rows"]
+    ]
+
+    table_card(table_rows)
+
+    note_box(
+        facts.SEGMENT_LIST_DISCLAIMER,
+        "개별 이용자를 식별하거나 직접 연락하기 위한 정보가 아닙니다.",
+        tone="info",
+    )
+
+def _ab_test_section():
+    """맨 아래: A/B 테스트로 실제 효과를 검증한 결과 (sqlonly DB 연결)"""
+    show(section_title("실험으로 검증하기",
+                       "위 전략 중 '젤리보상(자기소개 품질 보상)'을 실제로 시험해 본 결과예요. "
+                       "DB(sqlonly)에 연결되면 이 자리에 나타나요."))
+
+    if not db.is_connected():
+        show(placeholder_card("A/B 테스트 결과",
+                              "DB에 연결하지 못했어요. sqlonly 폴더에서 docker compose up -d 로 "
+                              "컨테이너를 켜고, 프로젝트에 .env 파일이 있는지 확인해 주세요."))
+        return
+
+    balance = db.run_query(_AB_BALANCE_SQL, {"exp": AB_EXPERIMENT})
+    result = db.run_query(_AB_RESULT_SQL, {"exp": AB_EXPERIMENT})
+
+    if balance is None or result is None or balance.empty or result.empty:
+        # DB에는 붙었지만 아직 실험 데이터가 없는, 지금의 정상적인 상태예요 (ab_test/README.md 참고)
+        show(check_list_card("아직 실험 데이터가 없어요 — 이건 정상이에요",
+                             "지금까지 본 건 상관관계예요. 실제로 효과가 있는지는 이렇게 검증할 계획이에요.", [
+            ("지금까지 확인한 것", "자기소개를 쓴 사람일수록 이탈률이 낮다는 '경향'"),
+            ("아직 확인 못한 것", "'쓰게 만들면' 정말 이탈이 줄어드는지의 '인과관계'"),
+            ("검증 방법", "위험군을 반으로 무작위 배정해서 한쪽에만 개입하고, 배정 직후 두 집단의 "
+                       "위험도가 비슷한지 먼저 확인한 뒤, 30일 후 잔존율을 비교해요."),
+            ("현재 상태", "ab_assignment · outcomes 테이블 스키마는 준비됐고, 실험을 아직 시작하지 않아 0행이에요."),
+        ]))
+        return
+
+    # 실험 데이터가 있으면: 배정 공정성 -> 30일 후 결과 순서로 보여줘요
+    c1, c2 = st.columns(2, gap="large")
+    with c1:
+        rows = [tuple(r) for r in balance.itertuples(index=False)]
+        show(table_card("배정이 공정했나요?", "두 집단의 평균 위험도가 비슷해야 이 비교를 신뢰할 수 있어요.",
+                        list(balance.columns), rows))
+    with c2:
+        rows = [tuple(r) for r in result.itertuples(index=False)]
+        show(table_card("30일 후 결과", "treatment(젤리보상 지급)와 control(미지급)을 비교했어요.",
+                        list(result.columns), rows))
+    show(note_box("잔존율 차이가 배정 시점의 위험도 차이보다 뚜렷하게 크다면, 젤리보상이 실제로 "
+                  "효과가 있다고 볼 수 있는 근거가 돼요."))
 
 # ---------------------------------------------------------
 # 위험 수준별 내용. 전략을 바꾸고 싶으면 아래 글만 고치면 됩니다.
@@ -119,3 +384,7 @@ def render():
     # 운영할 때 주의할 점
     show(note_box("예측 신호는 이탈의 '원인'이 아니라 함께 나타나는 '경향'이에요. "
                   "그래서 전략은 일부 사용자에게 먼저 시험(A/B 테스트)해서 효과를 확인한 뒤 넓혀 가는 것을 권장해요."))
+
+    # 실제로 시험해 본 결과 (DB 연결)
+    _sql_targeting_section()
+    _ab_test_section()

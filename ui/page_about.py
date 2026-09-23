@@ -21,7 +21,7 @@ from ui_parts import (check_list_card, chip_card, flow_card, kpi_card, note_box,
 def _tab_project():
     """탭 1: 프로젝트 소개"""
     show(text_card("무엇을 하는 서비스인가요?", [
-        "StayMatch 는 데이팅 플랫폼 운영사를 위한 '사용자 이탈 예측 · 리텐션 지원' 서비스입니다.",
+        "Catch 는 데이팅 플랫폼 운영사를 위한 '사용자 이탈 예측 · 리텐션 지원' 서비스입니다.",
         "Like, Match, Message 같은 행동 기록이 쌓이기 전인 신규 가입자도, 프로필 정보만으로 "
         "장기 미접속(이탈) 위험을 미리 알아볼 수 있는지 확인하는 프로젝트예요.",
     ]))
@@ -140,7 +140,7 @@ def _tab_model():
                   "이탈로 예측한 사람 중 절반 이상은 사실 이탈하지 않아요(오탐). 이탈자가 전체의 25.7% 로 적은 데이터라 "
                   "Accuracy 보다 Recall · PR-AUC 를 중심으로 봤어요."))
     show(note_box(f"5-Fold 교차검증 평균 ROC-AUC 는 {facts.CV_ROC_AUC:.3f} 예요. {facts.MODEL_CAVEAT}"))
-
+    show(note_box(facts.PROBABILITY_CALIBRATION_NOTE))
 
 def _tab_limits():
     """탭 4: 한계와 앞으로의 방향"""
@@ -155,7 +155,7 @@ def _tab_limits():
 
 
 def render():
-    show(page_header("ABOUT STAYMATCH", "프로젝트 및 모델 정보",
+    show(page_header("ABOUT CATCH", "프로젝트 및 모델 정보",
                      "어떤 데이터로 무엇을 예측하는지, 그리고 지금의 한계까지 투명하게 정리했어요."))
 
     # 탭 4개. 탭마다 위에서 만든 함수가 내용을 그려요.

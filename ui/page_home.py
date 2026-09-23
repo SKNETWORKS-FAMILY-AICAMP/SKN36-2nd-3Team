@@ -159,7 +159,7 @@ def render(on_start):
     }}
 }}
 </style>
-<div class="hero-wrap"><div class="hero-content"><div class="hero-title">Come back<br><span class="hero-highlight">to me.</span></div></div></div>
+<div class="hero-wrap"><div class="hero-content"><div class="hero-title">Not every goodbye<br><span class="hero-highlight">is inevitable.</span></div></div></div>
 """,
         unsafe_allow_html=True,
     )
@@ -464,7 +464,7 @@ def render(on_start):
 
     show(
         '<section class="catch-story">'
-        '<div class="catch-story-title">BEFORE THEY GO,<br>THERE&apos;S A SIGN.</div>'
+        '<div class="catch-story-title">BEFORE THEY GO,<br>THERE IS A SIGN.</div>'
         '<div class="catch-story-sub">떠나기 전에는,<br>늘 놓치기 쉬운 신호가 있습니다.</div>'
         '<div class="catch-story-layout">'
         '<div>'

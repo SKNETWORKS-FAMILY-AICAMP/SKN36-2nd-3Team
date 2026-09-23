@@ -1,4 +1,4 @@
-"""StayMatch 화면 스타일 (styles.py)
+"""Catch 화면 스타일 (styles.py)
 
 [이 파일이 하는 일]
 화면의 '겉모습'(색, 글자 크기, 여백, 모서리 둥글기, 그림자 등)을 정하는 CSS 규칙 모음입니다.
@@ -59,7 +59,7 @@ CSS = """
 }
 
 /* ---------- 로고 ---------- */
-/* 왼쪽 위 ♥ StayMatch 글자 */
+/* 왼쪽 위 ♥ Catch 글자 */
 .logo {
     font-size: 28px;
     font-weight: 800;

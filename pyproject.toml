@@ -5,5 +5,8 @@ requires-python = ">=3.12"
 dependencies = [
     "dicebear-core>=10.7.0",
     "dicebear-styles>=10.6.0",
+    "psycopg[binary]>=3.3.6",
+    "python-dotenv>=1.2.3",
+    "sqlalchemy>=2.0.54",
     "streamlit>=1.64.0",
 ]

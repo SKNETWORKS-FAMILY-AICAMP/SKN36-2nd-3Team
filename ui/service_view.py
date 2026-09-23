@@ -166,10 +166,12 @@ def _card_prediction(info, prediction=None):
         ribbon, note = "모델 연결됨", "CatBoost 모델이 실제로 계산한 위험 단계예요."
         p = prediction["risk"]
         color = _prob_color(p)
+        actual = facts.TIER_ACTUAL_RATES[risk_level]
         ref = (f'<div class="ref-box"><div class="ref-rate" style="color:{color}">{p * 100:.1f}%</div>'
                f'<div class="ref-text"><b>예측된 이탈 확률</b><br>'
-               f'평가 데이터 기준 상위 {"20" if risk_level == "high" else ("50" if risk_level == "mid" else "100")}%'
-               f' 안에 드는 위험도예요.</div></div>')
+               f'이 등급({risk_level.upper()})에 속한 평가 데이터 사용자들의 실제 이탈률은 {actual:.1f}%였어요. '
+               f'절대 수치보다 <b>등급(Low/Medium/High)</b>으로 보는 게 정확해요.</div></div>')
+
     else:
         ribbon, note = "모델 연결 전", "모델이 연결되면 위험 단계가 여기에 표시돼요."
         group = info["group"]
