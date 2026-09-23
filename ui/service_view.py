@@ -21,13 +21,16 @@ import re
 
 import project_facts as facts
 from page_retention import LEVELS
+from predict import MISSING_ESSAY   # '진짜 글이 아닌 것' 판단 규칙. predict.py 와 똑같은 기준을 씀
 from ui_parts import esc, note_box, show
 
 # ---------------------------------------------------------
 # 1) 입력값 분석 (계산만 하는 부분. 화면 그리기와 분리해 두었어요)
 # ---------------------------------------------------------
-# 자기소개에서 '진짜 글이 아닌 것'(점 하나, 물음표 등)은 안 쓴 것으로 봅니다. (전처리 노트북과 같은 규칙)
-_PLACEHOLDER = re.compile(r"(?i)[.\-?_/]+|na|n/a")
+# 자기소개에서 '진짜 글이 아닌 것'(점 하나, 물음표 등)은 안 쓴 것으로 봅니다.
+# 이 판단 자체는 predict.py 의 MISSING_ESSAY 를 그대로 가져다 써요. (전에는 여기서 살짝 다른
+# 정규식을 따로 만들어 놨어서, SERVICE 예측과 이 화면의 참고 신호가 같은 자기소개를 서로 다르게
+# '비어 있다/아니다'로 판단할 수 있는 위험이 있었어요. 하나로 합쳐서 그 위험을 없앴어요.)
 _LINK = re.compile(r"(?i)https?://|www\.")
 
 
@@ -35,7 +38,7 @@ def clean_essay(text):
     """HTML 태그를 지우고 공백을 정리한 자기소개 글. 진짜 글이 없으면 빈 글자를 돌려줌."""
     text = re.sub(r"<[^>]+>", " ", text or "")
     text = re.sub(r"\s+", " ", text).strip()
-    return "" if _PLACEHOLDER.fullmatch(text) or not text else text
+    return "" if MISSING_ESSAY.fullmatch(text) or not text else text
 
 
 def _group_index(value, upper_bounds):
@@ -124,8 +127,8 @@ STRATEGY_INFO = {title: (icon, text) for level in LEVELS for icon, title, text i
 # 위험 단계('low'/'mid'/'high') -> RETENTION 화면의 전략 카드 전체
 LEVEL_BY_KIND = {level["kind"]: level for level in LEVELS}
 
-# feature 영문 이름 -> 화면에 보여줄 한글 이름. project_facts.FEATURE_GROUPS 를 펼쳐서 만들어요.
-FEATURE_LABELS = {code: name for _, items in facts.FEATURE_GROUPS for code, name in items}
+# feature 영문 이름 -> 화면에 보여줄 한글 이름. project_facts.py 에서 한 번만 만들어 둔 걸 가져다 써요.
+FEATURE_LABELS = facts.FEATURE_LABELS
 
 
 def _rate_color(rate):
@@ -166,10 +169,11 @@ def _card_prediction(info, prediction=None):
         ribbon, note = "모델 연결됨", "CatBoost 모델이 실제로 계산한 위험 단계예요."
         p = prediction["risk"]
         color = _prob_color(p)
+        actual = facts.TIER_ACTUAL_RATES[risk_level]
         ref = (f'<div class="ref-box"><div class="ref-rate" style="color:{color}">{p * 100:.1f}%</div>'
                f'<div class="ref-text"><b>예측된 이탈 확률</b><br>'
-               f'평가 데이터 기준 상위 {"20" if risk_level == "high" else ("50" if risk_level == "mid" else "100")}%'
-               f' 안에 드는 위험도예요.</div></div>')
+               f'이 등급({risk_level.upper()})에 속한 평가 데이터 사용자들의 실제 이탈률은 {actual:.1f}%였어요. '
+               f'절대 수치보다 <b>등급(Low/Medium/High)</b>으로 보는 게 정확해요.</div></div>')
     else:
         ribbon, note = "모델 연결 전", "모델이 연결되면 위험 단계가 여기에 표시돼요."
         group = info["group"]

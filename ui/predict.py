@@ -55,8 +55,12 @@ CAT_FEATURES = [
 DRUGS = {"never": 0, "sometimes": 1, "often": 2}
 SMOKES = {"no": 0, "trying to quit": 1, "when drinking": 2, "sometimes": 3, "yes": 4}
 
-# 자기소개 정리 규칙 (team 코드와 동일)
-_MISSING_ESSAY = re.compile(r"(?i)^\s*(?:[.\-?_/]*|na|n/a)\s*$")   # 빈 글자, '.', '-', 'na' 등
+# 자기소개 정리 규칙 (team 코드와 동일). '진짜 글이 아닌 것'(점 하나, 물음표, 'na' 등)을 판단하는
+# 정규식이에요. service_view.py 의 EDA 참고 신호도 같은 판단 기준을 쓰기 위해 이름 앞에 밑줄(_)을
+# 빼서 다른 파일에서도 가져다 쓸 수 있게 공개해 뒀어요. (전에는 service_view.py 가 이 판단을
+# 살짝 다른 정규식으로 따로 만들어 놨어서, 둘 중 하나만 고치면 SERVICE 예측과 화면 참고 신호가
+# '같은 자기소개'를 다르게 판단할 위험이 있었어요)
+MISSING_ESSAY = re.compile(r"(?i)^\s*(?:[.\-?_/]*|na|n/a)\s*$")   # 빈 글자, '.', '-', 'na' 등
 _TAG_OR_SPACE = re.compile(r"(?:<[^>]+>|\s)+")                      # HTML 태그 + 공백
 _WORD = re.compile(r"\b\w+\b")
 
@@ -69,7 +73,7 @@ def _clean_essay(text):
     if not text:
         return None
     text = html.unescape(text)
-    return None if _MISSING_ESSAY.fullmatch(text.strip()) else text
+    return None if MISSING_ESSAY.fullmatch(text.strip()) else text
 
 
 def essay_features(essays):

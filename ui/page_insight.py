@@ -19,7 +19,7 @@
 app.py 에서 render() 를 호출하면 이 화면이 그려져요.
 """
 import streamlit as st
-
+import db
 import project_facts as facts
 from avatars import single_face
 from insight_data import (LIFESTYLE_OPTIONS, by_age, by_essay_count, by_lifestyle, by_status,
@@ -133,42 +133,108 @@ def _tab_personas():
 # 탭 4: 모델 · 그룹별
 # ---------------------------------------------------------
 def _tab_model_groups(df, has_data, churn_rate):
-    # 위험군 분포는 '모델이 사용자마다 계산한 확률'이 있어야 만들 수 있어서, 모델 연결 후 채웁니다.
     show(section_title("위험군 분포와 주요 예측 신호"))
-    p, q = st.columns(2, gap="large")
-    with p:
-        show(placeholder_card("전체 위험군 분포 (Low / Medium / High)",
-                              "모델이 연결되면 전체 사용자를 위험 수준별로 나눈 비율이 여기에 표시돼요."))
-    with q:
-        show(rank_list_card("모델이 중요하게 본 항목 TOP 5",
-                            f"{facts.MODEL_NAME} 모델의 SHAP 분석 결과 (영향이 큰 순서)",
-                            facts.SHAP_RANKING,
-                            footer="예측에 기여한 정도이며, 이탈의 원인을 뜻하지는 않아요. 최종 모델이 정해지면 바뀔 수 있어요."))
 
-    show(section_title("그룹별 이탈률",
-                       "막대가 길수록 이탈률이 높아요. 점선은 전체 평균이고, 평균보다 높은 그룹은 진한 핑크로 칠했어요."))
-    if not has_data:
-        show(placeholder_card("그룹별 이탈률 차트",
-                              "data 폴더에서 데이터 파일을 찾지 못했어요. okcupid_cleaned.csv.gz "
-                              "(또는 okcupid_profiles.csv)를 data 폴더에 넣으면 연령대, 관계 상태, 자기소개 작성량, "
-                              "라이프스타일별 그래프가 자동으로 나타나요."))
+    p, q = st.columns(2, gap="large")
+
+    with p:
+        risk_df = db.get_risk_tier_distribution()
+
+        if risk_df is None:
+            show(placeholder_card(
+                "전체 위험군 분포 (Low / Medium / High)",
+                "DB 연결이 필요해요. PostgreSQL 컨테이너가 실행 중인지 확인해 주세요.",
+            ))
+        elif risk_df.empty:
+            show(placeholder_card(
+                "전체 위험군 분포 (Low / Medium / High)",
+                "predictions 테이블에 아직 데이터가 없어요.",
+            ))
+        else:
+            risk_rows = [
+                {
+                    "label": row["risk_tier"],
+                    "rate": float(row["share"]),
+                    "n": int(row["n"]),
+                }
+                for _, row in risk_df.iterrows()
+            ]
+
+            show(rate_bars_card(
+                "전체 위험군 분포 (Low / Medium / High)",
+                "전체 예측 사용자 중 각 위험 등급이 차지하는 비율입니다.",
+                risk_rows,
+                hot_labels=["High"],
+                footer="High 위험군은 우선적인 리텐션 관리 대상입니다.",
+            ))
+
+    with q:
+        show(rank_list_card(
+            "모델이 중요하게 본 항목 TOP 5",
+            f"{facts.MODEL_NAME} 모델의 SHAP 분석 결과 (영향이 큰 순서)",
+            facts.SHAP_RANKING,
+            footer="예측에 기여한 정도이며, 이탈의 원인을 뜻하지는 않아요.",
+        ))
+
+    show(section_title(
+        "그룹별 이탈률",
+        "막대가 길수록 이탈률이 높아요. 점선은 전체 평균이고, 평균보다 높은 그룹은 진한 핑크로 칠했어요.",
+    ))
+
+    age_rows = db.get_group_churn_rates("age")
+    status_rows = db.get_group_churn_rates("status")
+    essay_rows = db.get_group_churn_rates("essay")
+
+    if not any([age_rows, status_rows, essay_rows]):
+        show(placeholder_card(
+            "그룹별 이탈률 차트",
+            "DB 연결이 필요해요. PostgreSQL 컨테이너가 실행 중인지 확인해 주세요.",
+        ))
         return
 
     g1, g2 = st.columns(2, gap="large")
+
     with g1:
-        show(_chart("연령대별", "나이 구간별 이탈률", by_age(df), churn_rate))
+        show(_chart(
+            "연령대별",
+            "나이 구간별 실제 이탈률",
+            age_rows,
+            churn_rate,
+        ))
+
     with g2:
-        show(_chart("관계 상태별", "프로필에 적은 현재 관계 상태별 이탈률", by_status(df), churn_rate))
+        show(_chart(
+            "관계 상태별",
+            "프로필에 적은 현재 관계 상태별 실제 이탈률",
+            status_rows,
+            churn_rate,
+        ))
 
     g3, g4 = st.columns(2, gap="large")
+
     with g3:
-        show(_chart("자기소개 작성량별", "자기소개 10칸 중 몇 칸을 채웠는지", by_essay_count(df), churn_rate))
+        show(_chart(
+            "자기소개 작성량별",
+            "자기소개 10칸 중 몇 칸을 채웠는지",
+            essay_rows,
+            churn_rate,
+        ))
+
     with g4:
-        # 라이프스타일은 항목(음주/흡연/약물/식단)을 골라서 볼 수 있게 했어요.
-        # st.selectbox 로 고른 값이 option 에 담기고, 바꿀 때마다 아래 그래프가 다시 그려져요.
-        option = st.selectbox("라이프스타일 항목 선택", list(LIFESTYLE_OPTIONS), key="insight_lifestyle")
-        show(_chart(f"{option}별", f"'{option}' 항목 응답별 이탈률 (응답하지 않은 사용자는 '미응답')",
-                    by_lifestyle(df, option), churn_rate))
+        option = st.selectbox(
+            "라이프스타일 항목 선택",
+            ["흡연", "약물", "식단"],
+            key="insight_lifestyle",
+        )
+
+        lifestyle_rows = db.get_group_churn_rates(option)
+
+        show(_chart(
+            f"{option}별",
+            f"'{option}' 항목 응답별 실제 이탈률",
+            lifestyle_rows,
+            churn_rate,
+        ))
 
 
 def render():

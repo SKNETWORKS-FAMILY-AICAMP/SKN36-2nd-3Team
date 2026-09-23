@@ -25,10 +25,13 @@
 - avatars.py        : 프로필 예시 얼굴 그리기
 - predict.py        : 예측(모델) 담당. 화면 입력값 -> 20개 feature 표 변환, 모델 예측, SHAP 계산
 - service_view.py   : SERVICE 화면 오른쪽 '결과 칸'. 모델 연결 전/후로 카드 내용이 자동으로 바뀌어요
+- db.py             : DB 연결 담당. 예측 결과를 predictions_live 테이블에 기록해요
 
 [실행 방법]  프로젝트 맨 바깥 폴더에서:  uv run streamlit run ui/app.py
 """
 import streamlit as st    # 웹 화면을 파이썬으로 만들어 주는 라이브러리 (관례로 st 라고 줄여 씁니다)
+
+import os     # model_file 컬럼에 넣을 파일 이름만 뽑을 때 씀 (os.path.basename)
 
 # =========================================================
 # 기본 설정
@@ -46,6 +49,8 @@ st.set_page_config(
 # 파일을 나눠 두면 "디자인은 styles.py, 얼굴은 avatars.py" 처럼 고칠 곳을 바로 찾을 수 있어요.
 from styles import apply_styles        # styles.py  : CSS(디자인)
 from avatars import input_card_html    # avatars.py : 프로필 예시 얼굴이 들어간 입력 카드
+import db                                                   # DB 연결 (predictions_live 에 기록)
+import project_facts as facts                               # feature 이름 -> 한글 이름 짝꿍표
 # 메뉴별 화면은 파일을 따로 두었어요. (as 뒤는 이 파일에서 부를 이름표)
 from service_view import render_result_panel               # SERVICE 오른쪽 결과 칸
 from predict import find_model_path, load_model, predict_churn   # 예측 모델 연결
@@ -59,11 +64,18 @@ from page_about import render as render_about            # ABOUT     메뉴 화�
 apply_styles()
 
 
-# models 폴더에서 .cbm 파일을 찾아 한 번만 불러옵니다. (없으면 None -> EDA 참고 신호로 대신함)
-# @st.cache_resource 가 없으면 화면을 조작할 때마다 매번 모델을 다시 읽어서 느려져요.
+# models 폴더에서 .cbm 파일을 한 번만 찾아 불러옵니다. (없으면 None -> EDA 참고 신호로 대신함)
+# 경로(churn_model_path)도 따로 기억해 둬요. predictions_live 의 model_file 컬럼에 파일 이름을
+# 남길 때 필요해서예요.
+# @st.cache_resource 가 없으면 화면을 조작할 때마다 매번 다시 찾고 불러와서 느려져요.
+@st.cache_resource
+def _find_churn_model_path():
+    return find_model_path()
+
+
 @st.cache_resource
 def _load_churn_model():
-    path = find_model_path()
+    path = _find_churn_model_path()
     if path is None:
         return None
     try:
@@ -72,7 +84,13 @@ def _load_churn_model():
         return None
 
 
+churn_model_path = _find_churn_model_path()
 churn_model = _load_churn_model()
+
+# 예측 결과에서 위험 신호 상위 3개를 한글 이름으로 바꿀 때 쓰는 짝꿍표.
+# project_facts.py 에서 한 번만 만들어 둔 걸 가져다 써요 (service_view.py 도 같은 걸 씁니다).
+# predict.py 의 'low'/'mid'/'high' -> predictions_live 테이블이 쓰는 'Low'/'Medium'/'High'
+_RISK_TIER_LABELS = {"low": "Low", "mid": "Medium", "high": "High"}
 
 # =========================================================
 # 페이지 이동 (HOME 버튼 -> SERVICE)
@@ -468,7 +486,7 @@ CHURN RISK PREDICTION
         # 프로필 / 자기소개
         # 자기소개 글은 모델이 내용을 '읽는' 게 아니라, 작성한 개수와 글자 수 같은
         # '숫자'로 바뀌어 쓰입니다. (성실하게 채운 사람일수록 앱을 오래 쓰는 경향이 있어요)
-        # 참고: Streamlit 은 expander 안에 expander 를 넣을 수 없어서,
+        # 참고: Streamlit 은 expander 안에 expander를 넣을 수 없어서,
         #       '추가 항목'은 체크박스로 펼치도록 만들었습니다.
         # -------------------------------------------------
         with st.expander("📝 프로필 / 자기소개"):
@@ -570,6 +588,32 @@ CHURN RISK PREDICTION
                 "diet_type": diet_type, "diet_strict": diet_strict, "smoking": smoking, "drugs": drugs,
                 "has_kids": has_kids, "wants_kids": wants_kids, "essays": essays,
             }, churn_model)
+
+            # 방금 예측한 결과를 predictions_live 테이블에 한 줄 남겨요.
+            # (INSIGHT 의 v_live_recent · v_live_today 뷰가 이 표를 보고 만들어져요)
+            # 신호 상위 3개를 "이름 (위험↑)" / "이름 (안정↓)" 모양으로 바꿔서 reason_1~3 에 넣어요.
+            row = prediction["row"]     # predict.py 가 만든 1행짜리 표 (essay_count 등을 여기서 꺼내요)
+            reasons = []
+            for code, value in prediction["top_signals"][:3]:
+                name = facts.FEATURE_LABELS.get(code, code)
+                arrow = "위험↑" if value > 0 else "안정↓"
+                reasons.append(f"{name} ({arrow})")
+            reasons += [None] * (3 - len(reasons))     # 3개가 안 되면 나머지는 빈칸으로
+
+            # DB 기록은 '되면 좋고 안 돼도 화면은 그대로 보여준다'는 원칙이라, 실패해도 조용히 넘어가요.
+            db.log_prediction({
+                "churn_prob": prediction["risk"],
+                "risk_tier": _RISK_TIER_LABELS[prediction["level"]],
+                "age": age,
+                "sex": gender_face,          # 'f' / 'm' / None (예측에는 안 쓰지만 기록용으로 남김)
+                "status": status,
+                "job": job,
+                "essay_count": int(row["essay_count"].iloc[0]),
+                "profile_completeness": float(row["profile_completeness"].iloc[0]),
+                "reason_1": reasons[0], "reason_2": reasons[1], "reason_3": reasons[2],
+                "model_file": os.path.basename(churn_model_path) if churn_model_path else None,
+                "note": None,
+            })
 
         render_result_panel(
             essays=essays,
