@@ -31,6 +31,12 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+# DB 연결이 안 됐을 때 화면에 보여줄 안내 문구. RETENTION 의 두 섹션(A/B 테스트, SQL 타겟팅)이
+# 똑같은 문구를 각자 따로 써 놨었어서, 한쪽만 고치면 다른 쪽이 옛 문구로 남는 위험이 있었어요.
+# 여기 한 곳에 모아 두고 db.NOT_CONNECTED_HINT 로 가져다 쓰면 항상 같은 문구가 나가요.
+NOT_CONNECTED_HINT = ("DB에 연결하지 못했어요. sqlonly 폴더에서 docker compose up -d 로 "
+                      "컨테이너를 켜고, 프로젝트에 .env 파일이 있는지 확인해 주세요.")
+
 
 # ---------------------------------------------------------
 # 1) 접속 정보 읽기

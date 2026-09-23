@@ -143,6 +143,12 @@ FEATURE_GROUPS = [
                               ("essay_avg_len", "칸당 평균 글자 수"), ("essay_len_std", "칸별 길이 편차")]),
 ]
 
+# feature 영문 이름 -> 화면에 보여줄 한글 이름. FEATURE_GROUPS 를 펼쳐서 한 번만 만들어 둬요.
+# (app.py 와 service_view.py 가 예전엔 이 짝꿍표를 각자 다시 만들고 있었어요. 코드가 똑같이
+#  두 곳에 있으면 나중에 FEATURE_GROUPS 를 고칠 때 한쪽을 깜빡하고 안 고칠 수 있어서, 여기
+#  한 곳에서 만들어 두고 두 파일 다 이걸 가져다 쓰게 합쳤어요.)
+FEATURE_LABELS = {code: name for _, items in FEATURE_GROUPS for code, name in items}
+
 # CatBoost 에 '범주형'이라고 알려주는 9개 항목 (나머지 11개는 숫자로 그대로 들어감)
 # 출처: common/feature_extraction.py 의 CAT_FEATURES
 CAT_FEATURES = ["religion_type", "edu_level", "wants_kids", "has_kids", "diet_type",

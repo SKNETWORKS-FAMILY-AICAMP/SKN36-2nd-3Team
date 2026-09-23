@@ -88,8 +88,7 @@ churn_model_path = _find_churn_model_path()
 churn_model = _load_churn_model()
 
 # 예측 결과에서 위험 신호 상위 3개를 한글 이름으로 바꿀 때 쓰는 짝꿍표.
-# project_facts.FEATURE_GROUPS 를 펼쳐서 만들어요. (service_view.py 도 같은 방식으로 만들어요)
-_FEATURE_LABELS = {code: name for _, items in facts.FEATURE_GROUPS for code, name in items}
+# project_facts.py 에서 한 번만 만들어 둔 걸 가져다 써요 (service_view.py 도 같은 걸 씁니다).
 # predict.py 의 'low'/'mid'/'high' -> predictions_live 테이블이 쓰는 'Low'/'Medium'/'High'
 _RISK_TIER_LABELS = {"low": "Low", "mid": "Medium", "high": "High"}
 
@@ -596,7 +595,7 @@ CHURN RISK PREDICTION
             row = prediction["row"]     # predict.py 가 만든 1행짜리 표 (essay_count 등을 여기서 꺼내요)
             reasons = []
             for code, value in prediction["top_signals"][:3]:
-                name = _FEATURE_LABELS.get(code, code)
+                name = facts.FEATURE_LABELS.get(code, code)
                 arrow = "위험↑" if value > 0 else "안정↓"
                 reasons.append(f"{name} ({arrow})")
             reasons += [None] * (3 - len(reasons))     # 3개가 안 되면 나머지는 빈칸으로
