@@ -75,15 +75,19 @@ def _tab_essay():
     with a:
         # 색이 진할수록 이탈률이 높은 칸이에요.
         show(heatmap_card("자기소개 작성 칸 수 × 칸당 평균 글자 수",
-                          "세로는 몇 칸을 썼는지, 가로는 한 칸당 평균 글자 수예요. 진한 핑크일수록 이탈률이 높아요.",
+                          "세로는 몇 칸을 썼는지, 가로는 한 칸당 평균 글자 수예요. 색 진하기는 '인원 수'가 아니라 이탈률을 뜻해요.",
                           facts.ESSAY_GRID_ROWS, facts.ESSAY_GRID_COLS,
                           facts.ESSAY_GRID_RATES, facts.ESSAY_GRID_COUNTS,
-                          footer="사람 수가 100명대인 칸은 우연일 수 있으니 참고만 하세요."))
+                          footer="색 진하기 = 이탈률 · 칸 안의 명수 = 해당 그룹 인원. 인원이 적어도 이탈률이 높으면 진하게 보일 수 있어요."))
     with b:
         rows = [{"label": name, "rate": rate, "n": n} for name, rate, n in facts.COMPLETENESS_GROUPS]
-        show(rate_bars_card("프로필 완성도 구간별 이탈률",
-                            "프로필 17개 항목 중 채운 비율을 5구간으로 나눴어요. 구간마다 사람 수는 달라요.",
-                            rows, baseline=facts.CHURN_RATE))
+        show(rate_bars_card(
+            "프로필 완성도 구간별 이탈률",
+            "막대 길이는 사람 수가 아니라 '그 구간의 이탈률'입니다. 명수는 왼쪽 숫자로 따로 표시해요.",
+            rows,
+            baseline=facts.CHURN_RATE,
+            footer="예: 5,128명이어도 이탈률이 낮으면 막대가 짧고, 12,304명이어도 이탈률이 높으면 막대가 길 수 있어요."
+        ))
     e10_low = facts.ESSAY_GRID_RATES[3][0]     # 10칸을 다 써도 칸당 50자 이하일 때
     e10_high = facts.ESSAY_GRID_RATES[3][4]    # 10칸을 다 쓰고 칸당 700자 초과일 때
     show(note_box(f"같은 10칸을 채워도 칸당 평균이 50자 이하면 이탈률이 {e10_low:.1f}%, 700자를 넘으면 {e10_high:.1f}%예요. "
