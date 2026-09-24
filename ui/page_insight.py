@@ -22,8 +22,7 @@ import streamlit as st
 import db
 import project_facts as facts
 from avatars import single_face
-from insight_data import (LIFESTYLE_OPTIONS, by_age, by_essay_count, by_lifestyle, by_status,
-                          load_dataset, overall_rate)
+from insight_data import load_dataset, overall_rate
 from ui_parts import (check_list_card, heatmap_card, kpi_card, note_box, page_header, persona_card,
                       placeholder_card, rank_list_card, rate_bars_card, section_title, show, signal_card,
                       takeaway_band)
@@ -136,7 +135,7 @@ def _tab_personas():
 # ---------------------------------------------------------
 # 탭 4: 모델 · 그룹별
 # ---------------------------------------------------------
-def _tab_model_groups(df, has_data, churn_rate):
+def _tab_model_groups(churn_rate):
     show(section_title("위험군 분포와 주요 예측 신호"))
 
     p, q = st.columns(2, gap="large")
@@ -241,27 +240,54 @@ def _tab_model_groups(df, has_data, churn_rate):
         ))
 
 
+# ---------------------------------------------------------
+# 맨 위 핵심 숫자용: 어디서 값을 가져올지 우선순위를 하나로 통일
+# ---------------------------------------------------------
+def _overview_stats():
+    """분석 사용자 수 · 전체 이탈률을 구한다. DB → 로컬 CSV → 고정값 순서로 찾아요.
+
+    ⚠️ 전에는 이 숫자만 'CSV 있으면 CSV, 없으면 고정값'을 썼는데, 바로 아래 탭4(위험군
+    분포·그룹별 이탈률)는 이미 DB를 최우선으로 쓰고 있었어요. 그러면 같은 화면 위/아래가
+    서로 다른 데이터 소스를 보게 되고, 로컬 CSV가 DB랑 조금이라도 다르면 숫자가 안 맞을
+    수 있어요. (예전 프로젝트 평가에서 "일부는 CSV, 일부는 DB를 써서 접근 방식이 일관되지
+    않다"는 지적을 받았던 것과 같은 종류의 문제라, 탭4랑 같은 우선순위로 맞췄어요)
+
+    반환: (사용자 수, 이탈률 %, 출처)  — 출처는 "db" / "csv" / "fixed" 중 하나예요.
+    """
+    if db.is_connected():
+        overall = db.run_query("SELECT COUNT(*) AS n, AVG(churn_actual) AS rate FROM predictions")
+        if overall is not None and not overall.empty and int(overall["n"].iloc[0]) > 0:
+            return int(overall["n"].iloc[0]), float(overall["rate"].iloc[0]) * 100, "db"
+    df = load_dataset()
+    if df is not None:
+        return len(df), overall_rate(df), "csv"
+    return facts.TOTAL_USERS, facts.CHURN_RATE, "fixed"
+
+
+_SOURCE_LABELS = {"db": "predictions 테이블(DB)", "csv": "data 폴더 파일", "fixed": "문서에 적힌 고정값"}
+
+
 def render():
     # ── 1) 화면 제목 ─────────────────────────────────────
     show(page_header("USER INSIGHT", "이탈 위험 사용자 분석",
                      "프로필 정보와 장기 미접속(이탈)의 관계를 한눈에 확인하는 관리자용 대시보드입니다."))
 
+    # 탭 4의 위험군 분포·그룹별 이탈률은 DB에서 가져오는데, 60초 캐시가 걸려 있어서 방금
+    # SERVICE에서 새로 예측해도 여기 숫자는 최대 60초 정도 늦게 반영될 수 있어요. 그 사실을
+    # 작게 알려줘요. (db.py 의 cache_status_caption() 이 연결 여부까지 같이 알려줘요)
+    st.caption(db.cache_status_caption())
+
     # ── 2) 핵심 발견 3가지 (맨 위 요약) ──────────────────
     show(takeaway_band("핵심 발견 3가지", _summary_items()))
 
-    # data 폴더의 파일을 읽습니다. (없으면 None)
-    df = load_dataset()
-    has_data = df is not None
-
-    # 파일이 있으면 실제 값을, 없으면 문서에 적힌 값을 보여줍니다.
-    users = len(df) if has_data else facts.TOTAL_USERS
-    churn_rate = overall_rate(df) if has_data else facts.CHURN_RATE
+    # 맨 위 숫자와 탭4가 같은 우선순위(DB → 로컬 CSV → 고정값)로 값을 찾게 통일했어요.
+    users, churn_rate, source = _overview_stats()
 
     # ── 3) 핵심 숫자 4개 ────────────────────────────────
     # st.columns(4) : 화면을 같은 너비 4칸으로 나눔
     k1, k2, k3, k4 = st.columns(4, gap="medium")
     with k1:
-        show(kpi_card("분석 사용자", f"{users:,}명", f"{facts.DATASET_NAME} 프로필"))
+        show(kpi_card("분석 사용자", f"{users:,}명", f"{facts.DATASET_NAME} 프로필 · {_SOURCE_LABELS[source]}"))
     with k2:
         show(kpi_card("이탈률", f"{churn_rate:.1f}%", f"마지막 접속 후 {facts.CHURN_DAYS}일 이상 미접속"))
     with k3:
@@ -279,11 +305,17 @@ def render():
     with t3:
         _tab_personas()
     with t4:
-        _tab_model_groups(df, has_data, churn_rate)
+        _tab_model_groups(churn_rate)
 
     # ── 5) 읽을 때 주의할 점 (탭 밖, 항상 보임) ──────────────
     note = ("지역별 분석은 뺐어요. 사용자의 99.8%가 캘리포니아라서 지역 간 비교가 의미 없기 때문이에요. "
             "또 이 화면의 차이는 '함께 나타나는 경향'이지 이탈의 원인이 아니에요.")
-    if has_data:
-        note += f" '그룹별 이탈률'은 data 폴더의 파일({users:,}명)로 직접 계산한 값이에요."
+    # ⚠️ 예전엔 여기서 무조건 "data 폴더 파일로 계산했다"고 했는데, 탭4는 이미 DB 전용이라 그
+    # 문구가 실제와 안 맞았어요. 지금 진짜 상태를 그대로 알려줘요: DB가 연결됐을 때만 위 숫자와
+    # 탭4가 같은 곳(DB)을 보고, DB가 없으면 위 숫자는 대신값을 쓰고 탭4는 비어 있어요.
+    if source == "db":
+        note += " 위 숫자와 아래 '모델 · 그룹별 분석' 탭은 모두 DB(predictions 테이블)에서 계산한 값이에요."
+    else:
+        note += (f" 위 숫자는 {_SOURCE_LABELS[source]}을 대신 보여준 값이에요. "
+                 "아래 '모델 · 그룹별 분석' 탭은 DB에 연결해야 값이 나와요.")
     show(note_box(note))

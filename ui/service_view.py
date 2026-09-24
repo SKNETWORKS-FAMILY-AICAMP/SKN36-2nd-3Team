@@ -23,7 +23,6 @@ import re
 import streamlit as st
 import streamlit.components.v1 as components
 import project_facts as facts
-from page_retention import LEVELS
 from predict import MISSING_ESSAY, predict_churn   # 결측 판단 규칙 + What-if 재예측
 from ui_parts import esc, note_box, show
 
@@ -125,10 +124,10 @@ def analyze_inputs(essays, has_kids, status):
 # 2) 화면 그리기
 # ---------------------------------------------------------
 # 전략 이름 -> (아이콘, 설명). RETENTION 화면(page_retention.py)의 내용을 그대로 가져와요.
-STRATEGY_INFO = {title: (icon, text) for level in LEVELS for icon, title, text in level["actions"]}
+STRATEGY_INFO = {title: (icon, text) for level in facts.LEVELS for icon, title, text in level["actions"]}
 
 # 위험 단계('low'/'mid'/'high') -> RETENTION 화면의 전략 카드 전체
-LEVEL_BY_KIND = {level["kind"]: level for level in LEVELS}
+LEVEL_BY_KIND = {level["kind"]: level for level in facts.LEVELS}
 
 # feature 영문 이름 -> 화면에 보여줄 한글 이름. project_facts.py 에서 한 번만 만들어 둔 걸 가져다 써요.
 FEATURE_LABELS = facts.FEATURE_LABELS
