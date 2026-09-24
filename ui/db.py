@@ -213,10 +213,13 @@ FROM filtered
 """
 
 _SEGMENT_REASONS_SQL = _SEGMENT_BASE + """
-SELECT reason_1, COUNT(*) AS n
+-- reason_1 원본은 "자녀 유무 (위험↑)" / "자녀 유무 (안정↓)" 처럼 화살표가 붙어 있어서,
+-- 화살표까지 그대로 GROUP BY 하면 같은 항목이 두 막대로 쪼개져 보여요. regexp_replace 로
+-- "(...)" 부분을 SQL 에서 먼저 떼고 합쳐서 세요.
+SELECT regexp_replace(reason_1, '\\s*\\([^)]*\\)\\s*$', '') AS reason_1, COUNT(*) AS n
 FROM filtered
 WHERE reason_1 IS NOT NULL
-GROUP BY reason_1
+GROUP BY 1
 ORDER BY n DESC
 LIMIT 5
 """

@@ -232,17 +232,39 @@ def _card_signals(info, prediction=None):
 def _card_strategies(info, prediction=None):
     """카드 3: 추천 리텐션 전략.
 
-    prediction 이 있으면 예측된 위험 단계(Low/Medium/High)의 RETENTION 전략을 전부 보여주고,
+    prediction 이 있으면 이 사람의 SHAP 신호 중 '위험을 실제로 높이는 쪽'(양수)만 골라서
+    RETENTION.REASON_TO_STRATEGY 로 전략을 찾아 보여줘요. (전에는 등급 전체 전략 5개를
+    무조건 다 보여줬는데, 그러면 프로필을 열심히 쓴 사람도 자기소개랑 상관없는 이유로 High
+    등급이 됐을 때 "프로필 작성 유도"를 받는 식으로 안 맞는 전략이 나갔어요. 이제는 이 사람의
+    진짜 위험 원인에 맞는 전략만 추려서 보여줘요.)
     없으면 지금까지처럼 입력값에서 찾은 신호에 맞는 전략만 골라서 보여줘요.
     """
     if prediction:
         level = LEVEL_BY_KIND[prediction["level"]]
+        # 위험을 '낮추는'(음수) 신호는 전략이 필요 없어서 빼고, '높이는'(양수) 신호만 남겨요.
+        risk_signals = [(code, value) for code, value in prediction["top_signals"] if value > 0]
+
+        strategy_names = []      # 신호 순서대로, 중복 없이 전략 이름을 모아요
+        for code, _ in risk_signals:
+            name = FEATURE_LABELS.get(code, code)
+            strategy = facts.REASON_TO_STRATEGY.get(name, facts.REASON_TO_STRATEGY_DEFAULT)
+            if strategy not in strategy_names:
+                strategy_names.append(strategy)
+
+        if strategy_names:
+            header = (f'<div class="dash-sub" style="margin-top:-8px">'
+                      f'이 사용자의 위험을 실제로 높인 신호에 맞춰 골랐어요. ({esc(level["name"])} 등급)</div>')
+        else:
+            # 상위 신호가 전부 '보호 요인'이면(위험을 높이는 뚜렷한 신호가 없으면), 등급 전체 전략으로 대신해요.
+            strategy_names = [name for _, name, _ in level["actions"]]
+            header = (f'<div class="dash-sub" style="margin-top:-8px">'
+                      f'뚜렷하게 위험을 높인 신호가 없어서, {esc(level["name"])} 등급의 기본 전략을 보여줘요.</div>')
+
         rows = ""
-        for icon, name, text in level["actions"]:
+        for name in strategy_names:
+            icon, text = STRATEGY_INFO.get(name, ("✨", ""))
             rows += (f'<div class="strat-row"><div class="strat-icon">{icon}</div><div>'
                      f'<div class="sig-title">{esc(name)}</div><div class="sig-stat">{esc(text)}</div></div></div>')
-        header = (f'<div class="dash-sub" style="margin-top:-8px">'
-                  f'{esc(level["name"])} 단계에 맞는 RETENTION 화면의 전략이에요.</div>')
         body = header + rows
     elif info["strategies"]:
         rows = ""

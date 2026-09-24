@@ -154,10 +154,18 @@ def _sql_targeting_section():
 
 
 def _ab_test_section():
-    """맨 아래: A/B 테스트로 실제 효과를 검증한 결과 (sqlonly DB 연결)"""
-    show(section_title("실험으로 검증하기",
-                       "위 전략 중 '젤리보상(자기소개 품질 보상)'을 실제로 시험해 본 결과예요. "
-                       "DB(sqlonly)에 연결되면 이 자리에 나타나요."))
+    """맨 아래: A/B 테스트 시뮬레이션 결과 (sqlonly DB 연결)
+
+    ⚠️ 여기 나오는 숫자는 진짜 실험 결과가 아니라 '가정 시뮬레이션'이에요. OkCupid 데이터는
+    2012년에 한 번 찍힌 사진이라 실제로 배정하고 30일을 기다리는 게 원래 불가능해요
+    (ab_test/README.md 참고). ab_test/04_simulate.sql 이 이 실험을 가상으로 채워 넣어요:
+    배정(누가 treatment/control 인지)은 진짜 무작위이고, control 결과는 실제 역사(churn_actual)
+    그대로지만, treatment 결과는 project_facts.KEY_SIGNALS 의 실제 상관관계(자기소개 분량 신호,
+    31.03pp 격차)를 절반만 인과 효과로 보수적으로 가정해서 만든 값이에요.
+    """
+    show(section_title("실험으로 검증하기(시뮬레이션)",
+                       "위 전략 중 '젤리보상(자기소개 품질 보상)'을 실제로 운영했다면 결과 화면이 "
+                       "어떤 모양일지 가정해서 미리 그려 본 거예요. DB(sqlonly)에 연결되면 이 자리에 나타나요."))
 
     if not db.is_connected():
         show(placeholder_card("A/B 테스트 결과", db.NOT_CONNECTED_HINT))
@@ -167,7 +175,7 @@ def _ab_test_section():
     result = db.run_query(_AB_RESULT_SQL, {"exp": AB_EXPERIMENT})
 
     if balance is None or result is None or balance.empty or result.empty:
-        # DB에는 붙었지만 아직 실험 데이터가 없는, 지금의 정상적인 상태예요 (ab_test/README.md 참고)
+        # DB에는 붙었지만 아직 시뮬레이션을 안 돌린, 지금의 정상적인 상태예요 (ab_test/README.md 참고)
         show(check_list_card("아직 실험 데이터가 없어요 — 이건 정상이에요",
                              "지금까지 본 건 '상관관계'예요. 실제로 효과가 있는지는 이렇게 검증할 계획이에요.", [
             ("지금까지 확인한 것", "자기소개를 쓴 사람일수록 이탈률이 낮다는 '경향'"),
@@ -178,18 +186,26 @@ def _ab_test_section():
         ]))
         return
 
-    # 실험 데이터가 있으면: 배정 공정성 -> 30일 후 결과 순서로 보여줘요
+    # ⚠️ 시뮬레이션 결과예요 — '실제로 검증됐다'는 표현은 절대 쓰지 않아요.
+    show(note_box("⚠️ 아래 숫자는 '만약 이렇게 운영했다면'을 가정한 시뮬레이션이에요. OkCupid 데이터는 "
+                  "2012년 스냅샷이라 실제로 배정하고 30일을 기다릴 수 없어서, control(개입 안 받음)의 "
+                  "결과만 실제 역사(churn_actual)를 그대로 쓰고, treatment(개입 받음)의 결과는 자기소개 "
+                  "분량과 이탈률의 실제 상관관계(31.03pp 격차)를 절반만 — 보수적으로 — 인과 효과로 "
+                  "가정해서 만들었어요. 서비스에 실제로 적용하면 이 자리가 진짜 측정값으로 바뀌어요."))
+
     c1, c2 = st.columns(2, gap="large")
     with c1:
         rows = [tuple(r) for r in balance.itertuples(index=False)]
-        show(table_card("배정이 공정했나요?", "두 집단의 평균 위험도가 비슷해야 이 비교를 신뢰할 수 있어요.",
+        show(table_card("배정이 공정했나요? (진짜 무작위 배정)",
+                        "두 집단의 평균 위험도가 비슷해야 이 비교를 신뢰할 수 있어요.",
                         list(balance.columns), rows))
     with c2:
         rows = [tuple(r) for r in result.itertuples(index=False)]
-        show(table_card("30일 후 결과", "treatment(젤리보상 지급)와 control(미지급)을 비교했어요.",
+        show(table_card("30일 후 결과 (시뮬레이션)",
+                        "treatment(젤리보상 지급 가정)와 control(미지급, 실제 역사)을 비교했어요.",
                         list(result.columns), rows))
-    show(note_box("잔존율 차이가 배정 시점의 위험도 차이보다 뚜렷하게 크다면, 젤리보상이 실제로 "
-                  "효과가 있다고 볼 수 있는 근거가 돼요."))
+    show(note_box("잔존율 차이가 가정한 값(약 15.5pp)과 비슷하게 나온다면, 시뮬레이션이 설계한 대로 "
+                  "잘 작동했다는 뜻이에요 — 이게 '젤리보상이 실제로 효과가 있다'는 증거는 아니에요."))
 
 # ---------------------------------------------------------
 # 위험 수준별 내용. 전략을 바꾸고 싶으면 아래 글만 고치면 됩니다.
@@ -294,5 +310,5 @@ def render():
     # 조건에 맞는 실제 대상자 찾기 (DB 연결, predictions 테이블 실시간 조회)
     _sql_targeting_section()
 
-    # 실제로 시험해 본 결과 (DB 연결)
+    # A/B 테스트 시뮬레이션 결과 (DB 연결)
     _ab_test_section()
