@@ -54,73 +54,129 @@ for _label, _lo, _hi in zip(facts.SEGMENT_AGE_LABELS, facts.SEGMENT_AGE_BINS[:-1
 _STATUS_OPTIONS = {"전체": None, **{kr: raw for raw, kr in STATUS_LABELS.items()}}
 
 
-def _sql_targeting_section():
-    """'조건에 맞는 대상자 찾기' — predictions 테이블(59,946명 전체)에서 실시간으로 조회한다."""
-    show(section_title("조건에 맞는 대상자 찾기",
-                       "조건을 고르면 SQL이 그 순간 predictions 테이블에서 해당 사용자를 찾아와요. "
-                       "DB(sqlonly)에 연결되면 이 자리에 나타나요."))
+def _sql_targeting_section(risk_tier, risk_label, key_suffix):
+    """현재 위험 탭(High / Medium / Low)에 해당하는 사용자만 predictions 테이블에서 조회한다.
+
+    탭 자체가 위험 등급 필터 역할을 하므로, 사용자가 별도의 위험 등급 선택창을 다시 고를 필요가 없어요.
+    나머지 조건(완성도/자기소개/관계 상태/연령대)만 추가로 좁힐 수 있습니다.
+    """
+    show(section_title(
+        f"{risk_label} 대상자 찾기",
+        f"현재 탭의 {risk_label} 사용자만 조회해요. 아래 조건을 추가하면 같은 위험 등급 안에서 더 세분화할 수 있습니다."
+    ))
 
     if not db.is_connected():
         show(placeholder_card("대상자 조회", db.NOT_CONNECTED_HINT))
         return
 
-    # 필터 5개. facts.SEGMENT_FILTERS 에 적어 둔 순서 그대로 나열해요.
-    c1, c2, c3, c4, c5 = st.columns(5)
+    # 위험 등급은 현재 탭으로 고정. 나머지 4개 조건만 선택합니다.
+    c1, c2, c3, c4 = st.columns(4)
     with c1:
-        risk_kr = st.selectbox("이탈 위험 등급", list(_RISK_OPTIONS), key="seg_risk")
+        comp_kr = st.selectbox(
+            "프로필 완성도", list(_COMPLETENESS_OPTIONS),
+            key=f"seg_comp_{key_suffix}"
+        )
     with c2:
-        comp_kr = st.selectbox("프로필 완성도", list(_COMPLETENESS_OPTIONS), key="seg_comp")
+        essay_kr = st.selectbox(
+            "자기소개 작성 수준", list(_ESSAY_OPTIONS),
+            key=f"seg_essay_{key_suffix}"
+        )
     with c3:
-        essay_kr = st.selectbox("자기소개 작성 수준", list(_ESSAY_OPTIONS), key="seg_essay")
+        status_kr = st.selectbox(
+            "관계 상태", list(_STATUS_OPTIONS),
+            key=f"seg_status_{key_suffix}"
+        )
     with c4:
-        status_kr = st.selectbox("관계 상태", list(_STATUS_OPTIONS), key="seg_status")
-    with c5:
-        age_kr = st.selectbox("연령대", list(_AGE_OPTIONS), key="seg_age")
+        age_kr = st.selectbox(
+            "연령대", list(_AGE_OPTIONS),
+            key=f"seg_age_{key_suffix}"
+        )
 
     essay_min, essay_max = _ESSAY_OPTIONS[essay_kr]
     age_min, age_max = _AGE_OPTIONS[age_kr]
 
     result = db.query_segment(
-        risk_tier=_RISK_OPTIONS[risk_kr], completeness_tier=_COMPLETENESS_OPTIONS[comp_kr],
-        essay_min=essay_min, essay_max=essay_max,
-        status=_STATUS_OPTIONS[status_kr], age_min=age_min, age_max=age_max,
+        risk_tier=risk_tier,
+        completeness_tier=_COMPLETENESS_OPTIONS[comp_kr],
+        essay_min=essay_min,
+        essay_max=essay_max,
+        status=_STATUS_OPTIONS[status_kr],
+        age_min=age_min,
+        age_max=age_max,
         limit=facts.SEGMENT_LIST_LIMIT,
     )
 
     if result is None:
-        show(placeholder_card("대상자 조회",
-                              "DB에는 연결됐지만 조회에 실패했어요. predictions 테이블이 있는지, "
-                              "컨테이너를 최신으로 띄웠는지 확인해 주세요."))
+        show(placeholder_card(
+            "대상자 조회",
+            "DB에는 연결됐지만 조회에 실패했어요. predictions 테이블이 있는지, 컨테이너를 최신으로 띄웠는지 확인해 주세요."
+        ))
         return
 
     if result["n"] == 0:
-        show(placeholder_card("대상자 조회", "이 조건에 맞는 사용자가 없어요. 조건을 조금 넓혀서 다시 찾아보세요."))
+        show(placeholder_card(
+            "대상자 조회",
+            f"현재 조건에 맞는 {risk_label} 사용자가 없어요. 조건을 조금 넓혀서 다시 찾아보세요."
+        ))
         return
 
-    # 결과 요약 카드 3개
+    # 결과 요약 카드 3개 — 모두 '현재 탭의 위험 등급' 기준
     k1, k2, k3 = st.columns(3, gap="medium")
     with k1:
-        show(kpi_card("조건에 맞는 사용자", f"{result['n']:,}명", "predictions 테이블(59,946명) 기준"))
+        show(kpi_card(
+            f"{risk_label} 대상자 수",
+            f"{result['n']:,}명",
+            "현재 탭 + 아래 필터 조건을 모두 만족한 사용자"
+        ))
     with k2:
-        show(kpi_card("평균 이탈 확률", f"{result['avg_prob'] * 100:.1f}%",
-                      "절대값보다 이 화면 안에서의 순위로 보는 게 정확해요."))
+        show(kpi_card(
+            f"{risk_label} 평균 이탈 확률",
+            f"{result['avg_prob'] * 100:.1f}%",
+            "현재 조회된 사용자들의 모델 예측 확률 평균"
+        ))
     with k3:
-        show(kpi_card("High 등급 비율", f"{result['high_share'] * 100:.1f}%", "이 조건 사용자 중 이탈 위험이 가장 높은 등급"))
+        tier_share = result.get("tier_share")
+        tier_share_text = f"{tier_share * 100:.1f}%" if tier_share is not None else "-"
+        show(kpi_card(
+            f"{risk_label} 등급 비율",
+            tier_share_text,
+            "같은 추가 조건 사용자 중 현재 위험 등급이 차지하는 비율"
+        ))
 
-    # 주요 위험 신호: 이 집단 안에서 각 신호가 1순위로 나온 비율(%)
+    # 주요 위험 신호: '현재 위험 등급 집단 안에서' reason_1 비율
     if result["reasons"]:
-        rows = [{"label": _reason_base_name(name) or "(기록 없음)", "rate": n / result["n"] * 100, "n": n}
-                for name, n in result["reasons"]]
-        show(rate_bars_card("이 집단의 주요 이탈 신호",
-                            "이 조건에 해당하는 사용자들 중, 그 신호가 1순위 위험 요인이었던 비율이에요.",
-                            rows))
+        rows = [
+            {
+                "label": _reason_base_name(name) or "(기록 없음)",
+                "rate": n / result["n"] * 100,
+                "n": n,
+            }
+            for name, n in result["reasons"]
+        ]
+        show(rate_bars_card(
+            f"{risk_label} 집단의 주요 이탈 신호",
+            "막대 길이 = 이 집단에서 해당 신호가 1순위 위험 요인이었던 사용자 비율입니다.",
+            rows,
+            footer="여기서는 막대 길이와 사람 수가 같은 기준입니다: 비율 = 해당 신호 인원 ÷ 현재 조회 인원."
+        ))
 
-    # 우선 관리 대상 명단 (익명 ID만)
-    table_rows = [(f"#{uid}", tier, f"{prob * 100:.1f}%", _reason_base_name(reason) or "-", _strategy_for_reason(reason))
-                 for uid, tier, prob, reason in result["rows"]]
-    show(table_card(f"우선 관리 대상 (이탈 확률 높은 순 {len(table_rows)}명)",
-                    f"전체 {result['n']:,}명 중 이탈 확률이 가장 높은 사용자예요.",
-                    ["익명 프로필 ID", "위험 등급", "이탈 확률", "주요 위험 신호", "추천 전략"], table_rows))
+    # 우선 관리 대상 명단 — 현재 위험 등급 안에서 확률 높은 순
+    table_rows = [
+        (
+            f"#{uid}",
+            tier,
+            f"{prob * 100:.1f}%",
+            _reason_base_name(reason) or "-",
+            _strategy_for_reason(reason),
+        )
+        for uid, tier, prob, reason in result["rows"]
+    ]
+    show(table_card(
+        f"{risk_label} 우선 관리 대상 (이탈 확률 높은 순 {len(table_rows)}명)",
+        f"현재 조건의 {risk_label} 사용자 {result['n']:,}명 중 이탈 확률이 가장 높은 사용자예요.",
+        ["익명 프로필 ID", "위험 등급", "이탈 확률", "주요 위험 신호", "추천 전략"],
+        table_rows,
+    ))
     show(note_box(facts.SEGMENT_LIST_DISCLAIMER))
 
 
@@ -219,12 +275,21 @@ def _render_level(level):
 
     # High 탭에서만: 어떤 사용자가 위험한지 데이터 근거
     if level["show_signals"]:
-        show(section_title("이런 사용자가 특히 위험해요",
-                           "문서에 정리된 분석에서 이탈률 차이가 컸던 특징이에요. 위 전략을 어디에 집중할지 정할 때 참고하세요."))
+        show(section_title(
+            "이런 사용자가 특히 위험해요",
+            "막대 길이와 색은 '사람 수'가 아니라 각 그룹의 이탈률을 뜻해요. 사람 수가 적어도 이탈률이 높으면 진하고 길게 보일 수 있습니다."
+        ))
         left, right = st.columns(2, gap="large")
         for i, s in enumerate(facts.KEY_SIGNALS):
             with (left if i % 2 == 0 else right):
                 show(signal_card(s["title"], s["high_label"], s["high_rate"], s["low_label"], s["low_rate"]))
+
+    # 현재 탭의 위험 등급으로 SQL 대상자 조회를 고정합니다.
+    _sql_targeting_section(
+        risk_tier=level["name"].split()[0],
+        risk_label=level["name"],
+        key_suffix=level["kind"],
+    )
 
 
 def render():
@@ -244,9 +309,6 @@ def render():
     # 운영할 때 주의할 점
     show(note_box("예측 신호는 이탈의 '원인'이 아니라 함께 나타나는 '경향'이에요. "
                   "그래서 전략은 일부 사용자에게 먼저 시험(A/B 테스트)해서 효과를 확인한 뒤 넓혀 가는 것을 권장해요."))
-
-    # 조건에 맞는 실제 대상자 찾기 (DB 연결, predictions 테이블 실시간 조회)
-    _sql_targeting_section()
 
     # 실제 서비스 도입 후 A/B 테스트 검증 계획
     _ab_test_section()

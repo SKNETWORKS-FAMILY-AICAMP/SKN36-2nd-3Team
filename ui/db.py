@@ -249,6 +249,7 @@ def query_segment(risk_tier=None, age_min=None, age_max=None, essay_min=None, es
         {"n": 인원 수,
          "avg_prob": 평균 이탈 확률(0~1) 또는 None(인원이 0명일 때),
          "high_share": High 등급 비율(0~1) 또는 None,
+         "tier_share": 같은 추가 조건 집단 안에서 선택한 risk_tier 비율(0~1) 또는 None,
          "reasons": [(위험 신호, 사람 수), ...]  # 흔한 순
          "rows": [(user_id, risk_tier, churn_prob, reason_1), ...]}  # 이탈 확률 높은 순
     """
@@ -262,15 +263,26 @@ def query_segment(risk_tier=None, age_min=None, age_max=None, essay_min=None, es
     try:
         with engine.connect() as conn:
             summary = conn.execute(text(_SEGMENT_SUMMARY_SQL), params).mappings().one()
+
+            # 현재 risk_tier가 같은 추가 조건 사용자 중 몇 %인지 계산하기 위한 분모.
+            # 예: High 탭 + 20대 필터라면 "20대 전체 중 High 비율"을 구합니다.
+            denom_params = {**params, "risk_tier": None}
+            denominator = conn.execute(text(_SEGMENT_SUMMARY_SQL), denom_params).mappings().one()
+
             reasons = conn.execute(text(_SEGMENT_REASONS_SQL), params).mappings().all()
             rows = conn.execute(text(_SEGMENT_LIST_SQL), {**params, "limit": limit}).mappings().all()
     except Exception:
         return None
 
+    n = int(summary["n"] or 0)
+    denominator_n = int(denominator["n"] or 0)
+    tier_share = (n / denominator_n) if (risk_tier is not None and denominator_n > 0) else None
+
     return {
-        "n": int(summary["n"] or 0),
+        "n": n,
         "avg_prob": float(summary["avg_prob"]) if summary["avg_prob"] is not None else None,
         "high_share": float(summary["high_share"]) if summary["high_share"] is not None else None,
+        "tier_share": tier_share,
         "reasons": [(r["reason_1"], int(r["n"])) for r in reasons],
         "rows": [(r["user_id"], r["risk_tier"], float(r["churn_prob"]), r["reason_1"]) for r in rows],
     }
