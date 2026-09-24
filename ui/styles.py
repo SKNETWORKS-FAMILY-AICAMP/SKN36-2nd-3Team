@@ -59,7 +59,7 @@ CSS = """
 }
 
 /* ---------- 로고 ---------- */
-/* 왼쪽 위 ♥ Catch 글자 */
+/* 왼쪽 위 ♥ StayMatch 글자 */
 .logo {
     font-size: 28px;
     font-weight: 800;
@@ -367,10 +367,13 @@ li[role="option"][aria-selected="true"] * {
 .dash-card {
     background: rgba(255, 255, 255, 0.92);
     border: 1px solid #f4e6eb;
-    border-radius: 24px;
-    padding: 24px 26px;
+    /* INSIGHT · RETENTION · ABOUT 은 '분석 대시보드' 화면이라, 랜딩 페이지 느낌의 큰 둥근
+       카드보다 조금 더 조밀한(compact) 모양이 정보 밀도를 높여 줘요. (HOME/SERVICE 는
+       .feature-card · .result-card 를 따로 쓰고 있어서 이 변경의 영향을 안 받아요) */
+    border-radius: 18px;
+    padding: 20px 22px;
     box-shadow: 0 12px 35px rgba(58, 26, 37, 0.05);
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 
 .dash-title {
@@ -1226,28 +1229,10 @@ div[data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > *
     position: sticky;
     top: 0;
     z-index: 999;
-    padding: 12px 0 8px 0;
-    isolation: isolate;
-}
-
-/* 메뉴 바의 흰 배경을 브라우저 전체 폭으로 확장 */
-.block-container > div[data-testid="stVerticalBlock"] > *:has(.nav-anchor),
-div[data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > *:has(.nav-anchor) {
-    position: sticky;
-    top: 0;
-    z-index: 999;
-
-    /* 메뉴 바를 브라우저 전체 폭으로 확장 */
-    width: 100vw !important;
-    max-width: 100vw !important;
-    margin-left: calc(50% - 50vw) !important;
-
-    box-sizing: border-box;
-    padding: 12px max(40px, calc((100vw - 1250px) / 2)) 8px;
-
-    background: rgba(255, 250, 251, 0.97);
+    background: rgba(255, 250, 251, 0.92);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
+    padding: 12px 0 8px 0;
     border-bottom: 1px solid rgba(244, 230, 235, 0.9);
 }
 
@@ -1281,6 +1266,40 @@ div[data-testid="stMainBlockContainer"] > div[data-testid="stVerticalBlock"] > *
 /* 강조할 줄(채택한 모델)의 배경은 위에서 지운 배경보다 우선해야 해서 다시 한 번 지정 */
 .fact-table tr.hl td {
     background: #fff0f5 !important;
+}
+
+/* ================================================================ */
+/* 작은 화면(모바일/태블릿) 대응 — INSIGHT · RETENTION의 막대그래프·표      */
+/* SERVICE 의 What-if 팝업에는 이미 760px 이하 media query가 있어서,       */
+/* 여기서는 나머지 화면들의 고정 폭 요소만 좁은 화면에서 줄어들게 해요.       */
+/* ================================================================ */
+@media (max-width: 640px) {
+    /* 막대그래프 왼쪽 이름표가 고정 150px 이라 좁은 화면에서 막대 자리를 너무 많이 차지해요 */
+    .bar-label {
+        width: 96px;
+        font-size: 12.5px;
+    }
+
+    .bar-value {
+        width: 46px;
+        font-size: 12.5px;
+    }
+
+    /* 완성도·히트맵·모델 비교 같은 표는 좁은 화면에서 가로 스크롤로 보게 해요 */
+    .fact-table, .heat-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .dash-card {
+        padding: 16px 16px;
+    }
+
+    /* 페르소나·요약 카드 안 얼굴+텍스트가 세로로 쌓이게 */
+    .persona-top {
+        flex-wrap: wrap;
+    }
 }
 </style>
 """

@@ -26,10 +26,34 @@ INSIGHT · RETENTION 화면이 이 파일을 통해 "지금 이 순간 DB에 실
 sqlonly/README.md 에 적힌 dayzero123 은 개발용 기본값이에요. .env 파일에 실제 값을 넣고,
 그 .env 파일은 절대 깃에 커밋하지 마세요 (.gitignore 에 이미 들어 있어야 해요).
 """
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+
+# 마지막으로 '진짜' DB에 다녀온 시각 (60초 캐시라서, 화면에 "최근 갱신"으로 보여줄 때 씀).
+# run_query()/query_segment() 가 캐시에 안 걸리고 실제로 쿼리를 실행했을 때만 갱신돼요.
+_last_fetch_at: datetime | None = None
+
+
+def _mark_fetch():
+    global _last_fetch_at
+    _last_fetch_at = datetime.now()
+
+
+def cache_status_caption() -> str:
+    """DB 연결 상태 + '최근 언제 새로 조회했는지'를 한 줄로 돌려준다.
+
+    INSIGHT · RETENTION 처럼 db.run_query()/query_segment() 결과를 보여주는 화면 맨 위에
+    붙이면 돼요. run_query()/query_segment() 는 60초 캐시가 걸려 있어서, 방금 SERVICE에서
+    새로 예측했어도 INSIGHT 숫자는 최대 60초 정도 늦게 반영될 수 있어요 — 이 문구가 그걸 알려줘요.
+    """
+    if not is_connected():
+        return "⚪ DB 연결 안 됨"
+    if _last_fetch_at is None:
+        return "🟢 DB 연결됨 · 아직 조회 전"
+    return f"🟢 DB 연결됨 · 최근 갱신 {_last_fetch_at.strftime('%H:%M:%S')} (최대 60초 정도 이전 값일 수 있어요)"
 
 # DB 연결이 안 됐을 때 화면에 보여줄 안내 문구. RETENTION 의 두 섹션(A/B 테스트, SQL 타겟팅)이
 # 똑같은 문구를 각자 따로 써 놨었어서, 한쪽만 고치면 다른 쪽이 옛 문구로 남는 위험이 있었어요.
@@ -121,7 +145,9 @@ def run_query(sql: str, params: tuple | None = None) -> pd.DataFrame | None:
     if conn is None:
         return None
     try:
-        return pd.read_sql(sql, conn, params=params)
+        result = pd.read_sql(sql, conn, params=params)
+        _mark_fetch()      # 진짜 DB에 다녀왔을 때만 시각을 기록해요 (캐시 히트 땐 이 줄 자체가 안 돌아요)
+        return result
     except Exception:
         # 연결은 됐는데 쿼리 자체가 잘못된 경우도 (컨테이너를 최신으로 안 띄웠다든가) 화면이
         # 안 멈추게 None 으로 처리해요. 원인을 보고 싶으면 이 except 를 잠깐 지우고 실행해 보세요.
@@ -186,7 +212,21 @@ def log_prediction(values: dict) -> bool:
 # 전부 None(NULL)일 수도 있어서, 이게 없으면 PostgreSQL 이 "이 값이 글자인지 숫자인지" 정하지
 # 못해서 에러가 나요. (PostgreSQL 의 :: 축약 표기 대신 CAST() 를 쓴 이유: SQLAlchemy 의 text() 가
 # ':이름::타입' 을 '이름 뒤에 콜론이 이스케이프된 것'으로 오해해서 값이 안 채워지는 문제가 있어요)
-_SEGMENT_BASE = """
+# 나머지 조건(위험 등급/나이/자기소개/관계 상태)에는 항상 필요한 WHERE 조각.
+_SEGMENT_COMMON_WHERE = """
+      AND (CAST(:risk_tier AS text) IS NULL OR risk_tier = :risk_tier)
+      AND (CAST(:age_min AS int) IS NULL OR age >= :age_min)
+      AND (CAST(:age_max AS int) IS NULL OR age <= :age_max)
+      AND (CAST(:essay_min AS int) IS NULL OR essay_count >= :essay_min)
+      AND (CAST(:essay_max AS int) IS NULL OR essay_count <= :essay_max)
+      AND (CAST(:status AS text) IS NULL OR status = :status)
+"""
+
+# 완성도(completeness_tier)를 실제로 걸렀을 때만 NTILE(3) 을 계산해요. NTILE 은 59,946명
+# 전체를 한 번 정렬해야 해서, 이 필터를 안 쓸 때도 매번 계산하면 낭비예요. (한 번의
+# query_segment() 호출 안에서 요약·명단·신호·분모까지 이 base 를 4번 실행하기 때문에,
+# 안 쓰는 계산이면 4번 다 아낄 수 있어요)
+_SEGMENT_BASE_WITH_TIER = """
 WITH base AS (
     SELECT user_id, age, status, risk_tier, churn_prob, essay_count,
            profile_completeness, reason_1,
@@ -195,24 +235,34 @@ WITH base AS (
 ),
 filtered AS (
     SELECT * FROM base
-    WHERE (CAST(:risk_tier AS text) IS NULL OR risk_tier = :risk_tier)
-      AND (CAST(:age_min AS int) IS NULL OR age >= :age_min)
-      AND (CAST(:age_max AS int) IS NULL OR age <= :age_max)
-      AND (CAST(:essay_min AS int) IS NULL OR essay_count >= :essay_min)
-      AND (CAST(:essay_max AS int) IS NULL OR essay_count <= :essay_max)
-      AND (CAST(:status AS text) IS NULL OR status = :status)
-      AND (CAST(:completeness_tier AS int) IS NULL OR completeness_tier = :completeness_tier)
+    WHERE (CAST(:completeness_tier AS int) IS NULL OR completeness_tier = :completeness_tier)
+""" + _SEGMENT_COMMON_WHERE + """
 )
 """
 
-_SEGMENT_SUMMARY_SQL = _SEGMENT_BASE + """
+_SEGMENT_BASE_NO_TIER = """
+WITH filtered AS (
+    SELECT user_id, age, status, risk_tier, churn_prob, essay_count,
+           profile_completeness, reason_1
+    FROM predictions
+    WHERE TRUE
+""" + _SEGMENT_COMMON_WHERE + """
+)
+"""
+
+
+def _segment_base(completeness_tier):
+    """completeness_tier 를 실제로 걸렀을 때만 NTILE(3) 이 들어간 버전을 골라요."""
+    return _SEGMENT_BASE_WITH_TIER if completeness_tier is not None else _SEGMENT_BASE_NO_TIER
+
+_SEGMENT_SUMMARY_TAIL = """
 SELECT COUNT(*) AS n,
        AVG(churn_prob) AS avg_prob,
        AVG((risk_tier = 'High')::int) AS high_share
 FROM filtered
 """
 
-_SEGMENT_REASONS_SQL = _SEGMENT_BASE + """
+_SEGMENT_REASONS_TAIL = """
 -- reason_1 원본은 "자녀 유무 (위험↑)" / "자녀 유무 (안정↓)" 처럼 화살표가 붙어 있어서,
 -- 화살표까지 그대로 GROUP BY 하면 같은 항목이 두 막대로 쪼개져 보여요. regexp_replace 로
 -- "(...)" 부분을 SQL 에서 먼저 떼고 합쳐서 세요.
@@ -224,7 +274,7 @@ ORDER BY n DESC
 LIMIT 5
 """
 
-_SEGMENT_LIST_SQL = _SEGMENT_BASE + """
+_SEGMENT_LIST_TAIL = """
 SELECT user_id, risk_tier, churn_prob, reason_1
 FROM filtered
 ORDER BY churn_prob DESC
@@ -260,19 +310,24 @@ def query_segment(risk_tier=None, age_min=None, age_max=None, essay_min=None, es
     params = {"risk_tier": risk_tier, "age_min": age_min, "age_max": age_max,
              "essay_min": essay_min, "essay_max": essay_max, "status": status,
              "completeness_tier": completeness_tier}
+    base = _segment_base(completeness_tier)
+    summary_sql = base + _SEGMENT_SUMMARY_TAIL
+    reasons_sql = base + _SEGMENT_REASONS_TAIL
+    list_sql = base + _SEGMENT_LIST_TAIL
     try:
         with engine.connect() as conn:
-            summary = conn.execute(text(_SEGMENT_SUMMARY_SQL), params).mappings().one()
+            summary = conn.execute(text(summary_sql), params).mappings().one()
 
             # 현재 risk_tier가 같은 추가 조건 사용자 중 몇 %인지 계산하기 위한 분모.
             # 예: High 탭 + 20대 필터라면 "20대 전체 중 High 비율"을 구합니다.
             denom_params = {**params, "risk_tier": None}
-            denominator = conn.execute(text(_SEGMENT_SUMMARY_SQL), denom_params).mappings().one()
+            denominator = conn.execute(text(summary_sql), denom_params).mappings().one()
 
-            reasons = conn.execute(text(_SEGMENT_REASONS_SQL), params).mappings().all()
-            rows = conn.execute(text(_SEGMENT_LIST_SQL), {**params, "limit": limit}).mappings().all()
+            reasons = conn.execute(text(reasons_sql), params).mappings().all()
+            rows = conn.execute(text(list_sql), {**params, "limit": limit}).mappings().all()
     except Exception:
         return None
+    _mark_fetch()      # 진짜 DB에 다녀온 시각 기록 (query_segment 도 run_query 와 별도 경로라 따로 표시해요)
 
     n = int(summary["n"] or 0)
     denominator_n = int(denominator["n"] or 0)
@@ -306,17 +361,18 @@ def get_risk_tier_distribution():
     return df
 
 
-# 그룹별 이탈률 계산에 쓰는 구간·이름표. insight_data.py 가 data 폴더 CSV로 계산할 때 쓰는
-# 것과 똑같이 맞춰서, DB로 계산해도 INSIGHT 화면의 다른 그래프와 기준이 어긋나지 않게 해요.
+# 그룹별 이탈률 계산에 쓰는 구간·이름표. 나이대·자기소개 구간은 여기서 직접 정의하고,
+# 흡연/약물/식단/관계상태 이름표는 insight_data.py 걸 그대로 가져다 써요 (바로 아래).
 _AGE_BANDS = [(17, 24, "18~24세"), (24, 29, "25~29세"), (29, 34, "30~34세"),
              (34, 44, "35~44세"), (44, 120, "45세 이상")]
 _ESSAY_BANDS = [(-1, 0, "0개"), (0, 3, "1~3개"), (3, 6, "4~6개"), (6, 10, "7~10개")]
-_STATUS_LABELS_SQL = {"single": "싱글", "available": "만남 가능", "seeing someone": "만나는 사람 있음",
-                      "married": "기혼", "unknown": "미응답"}
-_SMOKE_LABELS_SQL = {0: "안 피움", 1: "금연 중", 2: "술 마실 때만", 3: "가끔", 4: "자주"}
-_DRUG_LABELS_SQL = {0: "안 함", 1: "가끔", 2: "자주"}
-_DIET_LABELS_SQL = {"anything": "제한 없음", "vegetarian": "채식", "vegan": "비건",
-                    "other": "기타", "kosher": "코셔", "halal": "할랄"}
+# 흡연/약물/식단/관계상태 이름표는 insight_data.py 것을 그대로 가져다 써요. (전에는 여기서
+# 똑같은 내용을 손으로 다시 타이핑해 놨어서, 이름을 하나 바꾸면 한쪽만 고치고 넘어갈 위험이
+# 있었어요. import 하면 그 위험이 아예 없어져요)
+from insight_data import DIET_LABELS as _DIET_LABELS_SQL
+from insight_data import DRUG_LABELS as _DRUG_LABELS_SQL
+from insight_data import SMOKE_LABELS as _SMOKE_LABELS_SQL
+from insight_data import STATUS_LABELS as _STATUS_LABELS_SQL
 
 
 def _band_case_sql(column, bands):

@@ -51,6 +51,7 @@ from styles import apply_styles        # styles.py  : CSS(디자인)
 from avatars import input_card_html    # avatars.py : 프로필 예시 얼굴이 들어간 입력 카드
 import db                                                   # DB 연결 (predictions_live 에 기록)
 import project_facts as facts                               # feature 이름 -> 한글 이름 짝꿍표
+from ui_parts import page_header, show as ui_show           # SERVICE 제목도 다른 화면과 같은 부품으로
 # 메뉴별 화면은 파일을 따로 두었어요. (as 뒤는 이 파일에서 부를 이름표)
 from service_view import render_result_panel               # SERVICE 오른쪽 결과 칸
 from predict import find_model_path, load_model, predict_churn   # 예측 모델 연결
@@ -87,10 +88,23 @@ def _load_churn_model():
 churn_model_path = _find_churn_model_path()
 churn_model = _load_churn_model()
 
+# 모델 상태를 세 가지로 구분해요. 전에는 "파일이 아예 없음"이랑 "파일은 있는데 못 읽음"이
+# 둘 다 churn_model=None 으로 똑같이 보여서, 발표 직전에 문제가 생기면 원인을 못 찾았어요.
+if churn_model_path is None:
+    MODEL_STATUS = "no_file"
+elif churn_model is None:
+    MODEL_STATUS = "load_failed"
+else:
+    MODEL_STATUS = "ok"
+# (아이콘, 상태 문구)
+_MODEL_STATUS_TEXT = {
+    "ok": ("🟢", "모델 연결됨"),
+    "load_failed": ("🟡", "모델 파일은 찾았지만 불러오지 못했어요 (파일이 깨졌거나 CatBoost 버전 문제일 수 있어요)"),
+    "no_file": ("⚪", "모델 파일 없음 — 분석 결과(EDA) 참고 신호로 대신 보여줘요"),
+}
+
 # 예측 결과에서 위험 신호 상위 3개를 한글 이름으로 바꿀 때 쓰는 짝꿍표.
 # project_facts.py 에서 한 번만 만들어 둔 걸 가져다 써요 (service_view.py 도 같은 걸 씁니다).
-# predict.py 의 'low'/'mid'/'high' -> predictions_live 테이블이 쓰는 'Low'/'Medium'/'High'
-_RISK_TIER_LABELS = {"low": "Low", "mid": "Medium", "high": "High"}
 
 # =========================================================
 # 페이지 이동 (HOME 버튼 -> SERVICE)
@@ -142,22 +156,13 @@ if page == "HOME":
 # 서비스 화면: 왼쪽에 사용자 정보를 입력하고, 오른쪽에 예측 결과가 나오는 구조입니다.
 elif page == "SERVICE":
 
-    # 화면 맨 위 제목 문구
-    st.markdown("""
-<div style="padding-top: 50px; padding-bottom: 25px;">
-<div style="font-size: 14px; font-weight: 800; color: #d1245e;">
-CHURN RISK PREDICTION
-</div>
+    # 화면 맨 위 제목 (다른 화면과 똑같이 page_header() 부품을 재사용해요)
+    ui_show(page_header("CHURN RISK PREDICTION", "사용자 이탈 위험 분석",
+                        "사용자 프로필 정보를 입력하면 장기 미접속 위험을 분석합니다."))
 
-<div style="font-size: 38px; font-weight: 850; color: #222; margin-top: 8px;">
-사용자 이탈 위험 분석
-</div>
-
-<div style="font-size: 16px; color: #5a5a5a; margin-top: 10px;">
-사용자 프로필 정보를 입력하면 장기 미접속 위험을 분석합니다.
-</div>
-</div>
-""", unsafe_allow_html=True)
+    # 모델 상태를 작게 표시해요. (연결됨 / 불러오기 실패 / 파일 없음 — 세 가지를 구분해서 보여줘요)
+    _status_icon, _status_text = _MODEL_STATUS_TEXT[MODEL_STATUS]
+    st.caption(f"{_status_icon} {_status_text}")
 
     # 왼쪽(입력) : 오른쪽(결과) = 1.25 : 1 로 나눔. gap="large" 는 두 칸 사이를 넓게 띄움
     input_col, result_col = st.columns([1.25, 1], gap="large")
@@ -610,10 +615,13 @@ CHURN RISK PREDICTION
                 reasons.append(f"{name} ({arrow})")
             reasons += [None] * (3 - len(reasons))     # 3개가 안 되면 나머지는 빈칸으로
 
-            # DB 기록은 '되면 좋고 안 돼도 화면은 그대로 보여준다'는 원칙이라, 실패해도 조용히 넘어가요.
-            db.log_prediction({
+            # DB 기록은 '되면 좋고 안 돼도 화면은 그대로 보여준다'는 원칙이라, 실패해도 예측 자체는
+            # 막지 않아요. 다만 DB가 분명히 연결은 됐는데 기록만 실패한 경우는 원인 파악이 필요한
+            # 이상 상황이라 st.toast 로 조용히 알려줘요. (DB가 아예 연결 안 된 건 이미 다른 화면에
+            # 안내가 있어서 여기서 또 띄우면 시끄러워요. 그래서 '연결은 됐는데 기록만 실패'할 때만 알려요)
+            logged = db.log_prediction({
                 "churn_prob": prediction["risk"],
-                "risk_tier": _RISK_TIER_LABELS[prediction["level"]],
+                "risk_tier": facts.RISK_TIER_DB_LABELS[prediction["level"]],
                 "age": age,
                 "sex": gender_face,          # 'f' / 'm' / None (예측에는 안 쓰지만 기록용으로 남김)
                 "status": status,
@@ -624,6 +632,8 @@ CHURN RISK PREDICTION
                 "model_file": os.path.basename(churn_model_path) if churn_model_path else None,
                 "note": None,
             })
+            if not logged and db.is_connected():
+                st.toast("⚠️ 예측은 됐지만 predictions_live 기록에는 실패했어요.")
         elif predict_button:
             # 모델이 없는 상태에서 버튼을 누르면 과거 결과를 새 결과처럼 보여주지 않습니다.
             prediction = None
@@ -632,6 +642,14 @@ CHURN RISK PREDICTION
             st.session_state.pop("service_prediction_inputs", None)
             st.session_state.pop("service_whatif", None)
             st.session_state.pop("service_show_whatif_editor", None)
+
+        # 왼쪽 입력값을 바꾸고 나서 '분석하기'를 다시 안 누르면, 오른쪽엔 예전 결과가 그대로
+        # 남아 있어요(What-if 팝업을 쓰려면 결과를 세션에 붙잡아 둬야 해서 일부러 그래요).
+        # 그런데 그러면 사용자는 "입력을 바꿨으니 결과도 바뀌었겠지"라고 오해할 수 있어서,
+        # 지금 폼 값이 마지막으로 분석한 값과 다르면 눈에 띄게 알려줘요.
+        if prediction is not None and prediction_inputs is not None and prediction_inputs != current_inputs:
+            st.warning("입력값이 마지막 분석 때와 달라졌어요. 아래 결과는 이전 입력 기준이에요 — "
+                      "다시 반영하려면 '이탈 위험 분석하기'를 한 번 더 눌러주세요.", icon="✏️")
 
         render_result_panel(
             essays=(prediction_inputs or current_inputs)["essays"],
