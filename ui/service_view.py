@@ -17,11 +17,13 @@ prediction 이 없으면(모델 파일이 없을 때) 예전처럼 분석 결과
 - EDA 참고 신호: project_facts.py (팀 노트북 02_essay_deep_experiment 의 Train 데이터 결과)
 - 진짜 예측값 : predict.py 가 불러온 CatBoost 모델
 """
+import copy
 import re
 
+import streamlit as st
 import project_facts as facts
 from page_retention import LEVELS
-from predict import MISSING_ESSAY   # '진짜 글이 아닌 것' 판단 규칙. predict.py 와 똑같은 기준을 씀
+from predict import MISSING_ESSAY, predict_churn   # 결측 판단 규칙 + What-if 재예측
 from ui_parts import esc, note_box, show
 
 # ---------------------------------------------------------
@@ -283,7 +285,104 @@ def _card_strategies(info, prediction=None):
             f'{body}</div>')
 
 
-def render_result_panel(essays, has_kids, status, clicked=False, prediction=None):
+@st.dialog("이탈 위험 분석 결과", width="large")
+def _render_result_dialog(info, current_inputs, current_prediction, model):
+    """기본 분석 결과를 먼저 보여주고, 원할 때만 프로필 변경 재예측을 연다."""
+    current_risk = float(current_prediction["risk"])
+
+    # 기존에 SERVICE 오른쪽 칸에 있던 결과를 모두 팝업 안으로 옮깁니다.
+    show(_card_prediction(info, current_prediction))
+    show(_card_signals(info, current_prediction))
+    show(_card_strategies(info, current_prediction))
+
+    st.divider()
+    st.markdown("#### 프로필을 바꾸면 예측도 달라질까요?")
+    st.caption("현재 결과를 확인한 뒤, 원할 때만 자기소개를 바꿔 같은 모델로 다시 계산할 수 있어요.")
+
+    if st.button(
+        "✨ 프로필을 바꿔 다시 계산해보기",
+        use_container_width=True,
+        key="open_whatif_editor",
+    ):
+        st.session_state["service_show_whatif_editor"] = True
+
+    if not st.session_state.get("service_show_whatif_editor", False):
+        return
+
+    scenario = st.radio(
+        "변경해 볼 항목",
+        ["첫 자기소개 작성 또는 보완", "자기소개 항목 한 칸 추가"],
+        key="whatif_scenario",
+    )
+    changed_text = st.text_area(
+        "변경 후 자기소개 내용",
+        height=120,
+        placeholder="변경하거나 새로 작성할 자기소개를 입력해주세요.",
+        key="whatif_essay_text",
+    )
+
+    if st.button("변경 후 위험도 계산", use_container_width=True, key="whatif_predict"):
+        if not changed_text.strip():
+            st.warning("변경 후 자기소개 내용을 먼저 입력해주세요.")
+        else:
+            scenario_inputs = copy.deepcopy(current_inputs)
+            scenario_essays = list(scenario_inputs.get("essays", []))
+            scenario_essays += [""] * (10 - len(scenario_essays))
+
+            if scenario == "첫 자기소개 작성 또는 보완":
+                scenario_essays[0] = changed_text
+                changed_label = "첫 자기소개 작성/보완"
+            else:
+                empty_index = next(
+                    (i for i in range(1, 10) if not str(scenario_essays[i]).strip()),
+                    None,
+                )
+                if empty_index is None:
+                    st.warning("이미 자기소개 10칸을 모두 작성해 추가할 빈칸이 없어요.")
+                    return
+                scenario_essays[empty_index] = changed_text
+                changed_label = f"자기소개 {empty_index + 1}번째 칸 추가"
+
+            scenario_inputs["essays"] = scenario_essays
+            scenario_prediction = predict_churn(scenario_inputs, model)
+            st.session_state["service_whatif"] = {
+                "base_risk": current_risk,
+                "prediction": scenario_prediction,
+                "label": changed_label,
+            }
+
+    result = st.session_state.get("service_whatif")
+    if result and abs(float(result["base_risk"]) - current_risk) < 1e-12:
+        changed_risk = float(result["prediction"]["risk"])
+        delta_pp = (changed_risk - current_risk) * 100
+        before_col, after_col = st.columns(2)
+        before_col.metric("현재 모델 예측", f"{current_risk * 100:.1f}%")
+        after_col.metric(
+            "변경 후 모델 예측",
+            f"{changed_risk * 100:.1f}%",
+            delta=f"{delta_pp:+.1f}%p",
+            delta_color="inverse",
+        )
+        direction = "낮아졌습니다" if delta_pp < 0 else "높아졌습니다" if delta_pp > 0 else "같습니다"
+        st.markdown(
+            f"**{result['label']}**으로 입력했을 때 모델의 예측 위험이 "
+            f"**{abs(delta_pp):.1f}%p {direction}**"
+        )
+        st.caption(
+            "변경된 프로필 입력에 대한 모델 재예측입니다. 실제 사용자의 이탈률 변화나 "
+            "전략의 인과 효과를 보장하지 않습니다."
+        )
+
+
+def render_result_panel(
+    essays,
+    has_kids,
+    status,
+    clicked=False,
+    prediction=None,
+    current_inputs=None,
+    model=None,
+):
     """결과 칸 전체를 그린다. app.py 의 SERVICE 화면 오른쪽 칸에서 호출해요.
 
     clicked    : '이탈 위험 분석하기' 버튼을 눌렀는지
@@ -294,6 +393,11 @@ def render_result_panel(essays, has_kids, status, clicked=False, prediction=None
         # 버튼을 눌렀는데 모델 파일을 못 찾은 경우, 무엇이 표시되는지 알려 줍니다.
         show(note_box("models 폴더에서 예측 모델(.cbm)을 찾지 못했어요. 아래는 분석 결과(EDA)에서 "
                       "나온 실제 이탈률로 만든 참고 신호예요."))
-    show(_card_prediction(info, prediction))
-    show(_card_signals(info, prediction))
-    show(_card_strategies(info, prediction))
+        show(_card_prediction(info, prediction))
+        show(_card_signals(info, prediction))
+        show(_card_strategies(info, prediction))
+
+    # 모델 예측에 성공하면 오른쪽 칸에는 따로 결과를 그리지 않고,
+    # 분석 결과와 재계산 기능을 모두 가운데 모달 하나에서 보여줍니다.
+    if clicked and prediction is not None and current_inputs is not None and model is not None:
+        _render_result_dialog(info, current_inputs, prediction, model)

@@ -580,14 +580,24 @@ CHURN RISK PREDICTION
         # 없으면 예전처럼 분석 결과(EDA) 기반 참고 신호를 보여줍니다. (앱은 어느 쪽이든 안 멈춰요)
         essays = [essay0, essay1, essay2, essay3, essay4, essay5, essay6, essay7, essay8, essay9]
 
-        prediction = None
+        current_inputs = {
+            "age": age, "height": height, "job": job, "status": status, "income": income,
+            "education": education, "education_status": education_status, "religion": religion,
+            "diet_type": diet_type, "diet_strict": diet_strict, "smoking": smoking, "drugs": drugs,
+            "has_kids": has_kids, "wants_kids": wants_kids, "essays": essays,
+        }
+
+        # What-if 입력을 바꾸면 Streamlit이 화면을 다시 실행하므로, 직전에 계산한 원본 결과와
+        # 입력을 session_state에 보관해 결과 화면이 사라지지 않게 합니다.
+        prediction = st.session_state.get("service_prediction")
+        prediction_inputs = st.session_state.get("service_prediction_inputs")
         if predict_button and churn_model is not None:
-            prediction = predict_churn({
-                "age": age, "height": height, "job": job, "status": status, "income": income,
-                "education": education, "education_status": education_status, "religion": religion,
-                "diet_type": diet_type, "diet_strict": diet_strict, "smoking": smoking, "drugs": drugs,
-                "has_kids": has_kids, "wants_kids": wants_kids, "essays": essays,
-            }, churn_model)
+            prediction = predict_churn(current_inputs, churn_model)
+            prediction_inputs = current_inputs
+            st.session_state["service_prediction"] = prediction
+            st.session_state["service_prediction_inputs"] = current_inputs
+            st.session_state.pop("service_whatif", None)
+            st.session_state.pop("service_show_whatif_editor", None)
 
             # 방금 예측한 결과를 predictions_live 테이블에 한 줄 남겨요.
             # (INSIGHT 의 v_live_recent · v_live_today 뷰가 이 표를 보고 만들어져요)
@@ -614,13 +624,23 @@ CHURN RISK PREDICTION
                 "model_file": os.path.basename(churn_model_path) if churn_model_path else None,
                 "note": None,
             })
+        elif predict_button:
+            # 모델이 없는 상태에서 버튼을 누르면 과거 결과를 새 결과처럼 보여주지 않습니다.
+            prediction = None
+            prediction_inputs = None
+            st.session_state.pop("service_prediction", None)
+            st.session_state.pop("service_prediction_inputs", None)
+            st.session_state.pop("service_whatif", None)
+            st.session_state.pop("service_show_whatif_editor", None)
 
         render_result_panel(
-            essays=essays,
-            has_kids=has_kids,
-            status=status,
+            essays=(prediction_inputs or current_inputs)["essays"],
+            has_kids=(prediction_inputs or current_inputs)["has_kids"],
+            status=(prediction_inputs or current_inputs)["status"],
             clicked=predict_button,
             prediction=prediction,
+            current_inputs=prediction_inputs,
+            model=churn_model,
         )
 
 

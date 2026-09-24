@@ -25,35 +25,6 @@ from insight_data import STATUS_LABELS
 from ui_parts import (action_card, check_list_card, kpi_card, note_box, page_header, placeholder_card,
                       rate_bars_card, section_title, show, signal_card, table_card, tag)
 
-# ---------------------------------------------------------
-# A/B 테스트 (sqlonly/ab_test) — 배정 공정성 확인 · 30일 후 결과 비교
-# 쿼리는 sqlonly/ab_test/03_measure.sql 의 ②, ③번을 그대로 옮겨 왔어요.
-# ---------------------------------------------------------
-AB_EXPERIMENT = "젤리보상"
-
-_AB_BALANCE_SQL = """
-    SELECT arm AS 집단, COUNT(*) AS 인원,
-           ROUND(AVG(p.churn_prob)::numeric * 100, 1) AS 평균위험도
-    FROM ab_assignment a
-    JOIN predictions p USING (user_id)
-    WHERE a.experiment = %(exp)s
-    GROUP BY arm
-"""
-
-_AB_RESULT_SQL = """
-    SELECT
-        a.arm                                          AS 집단,
-        COUNT(*)                                       AS 인원,
-        ROUND(AVG(o.retained_30d)::numeric * 100, 1)   AS 잔존율,
-        ROUND(AVG(o.profile_edited)::numeric * 100, 1) AS 프로필수정률
-    FROM ab_assignment a
-    JOIN outcomes o USING (user_id)
-    WHERE a.experiment = %(exp)s
-    GROUP BY a.arm
-    ORDER BY a.arm
-"""
-
-
 def _reason_base_name(reason_text):
     """'자기소개 작성 칸 수 (위험↑)' -> '자기소개 작성 칸 수' (괄호 뒤 화살표 표시를 뗀다)"""
     if not reason_text:
@@ -154,58 +125,25 @@ def _sql_targeting_section():
 
 
 def _ab_test_section():
-    """맨 아래: A/B 테스트 시뮬레이션 결과 (sqlonly DB 연결)
-
-    ⚠️ 여기 나오는 숫자는 진짜 실험 결과가 아니라 '가정 시뮬레이션'이에요. OkCupid 데이터는
-    2012년에 한 번 찍힌 사진이라 실제로 배정하고 30일을 기다리는 게 원래 불가능해요
-    (ab_test/README.md 참고). ab_test/04_simulate.sql 이 이 실험을 가상으로 채워 넣어요:
-    배정(누가 treatment/control 인지)은 진짜 무작위이고, control 결과는 실제 역사(churn_actual)
-    그대로지만, treatment 결과는 project_facts.KEY_SIGNALS 의 실제 상관관계(자기소개 분량 신호,
-    31.03pp 격차)를 절반만 인과 효과로 보수적으로 가정해서 만든 값이에요.
-    """
-    show(section_title("실험으로 검증하기(시뮬레이션)",
-                       "위 전략 중 '젤리보상(자기소개 품질 보상)'을 실제로 운영했다면 결과 화면이 "
-                       "어떤 모양일지 가정해서 미리 그려 본 거예요. DB(sqlonly)에 연결되면 이 자리에 나타나요."))
-
-    if not db.is_connected():
-        show(placeholder_card("A/B 테스트 결과", db.NOT_CONNECTED_HINT))
-        return
-
-    balance = db.run_query(_AB_BALANCE_SQL, {"exp": AB_EXPERIMENT})
-    result = db.run_query(_AB_RESULT_SQL, {"exp": AB_EXPERIMENT})
-
-    if balance is None or result is None or balance.empty or result.empty:
-        # DB에는 붙었지만 아직 시뮬레이션을 안 돌린, 지금의 정상적인 상태예요 (ab_test/README.md 참고)
-        show(check_list_card("아직 실험 데이터가 없어요 — 이건 정상이에요",
-                             "지금까지 본 건 '상관관계'예요. 실제로 효과가 있는지는 이렇게 검증할 계획이에요.", [
-            ("지금까지 확인한 것", "자기소개를 쓴 사람일수록 이탈률이 낮다는 '경향'"),
-            ("아직 확인 못한 것", "'쓰게 만들면' 정말 이탈이 줄어드는지의 '인과관계'"),
-            ("검증 방법", "위험군을 반으로 무작위 배정해서 한쪽에만 개입하고, 배정 직후 두 집단의 "
-                       "위험도가 비슷한지 먼저 확인한 뒤, 30일 후 잔존율을 비교해요."),
-            ("현재 상태", "ab_assignment · outcomes 테이블 스키마는 준비됐고, 실험을 아직 시작하지 않아 0행이에요."),
-        ]))
-        return
-
-    # ⚠️ 시뮬레이션 결과예요 — '실제로 검증됐다'는 표현은 절대 쓰지 않아요.
-    show(note_box("⚠️ 아래 숫자는 '만약 이렇게 운영했다면'을 가정한 시뮬레이션이에요. OkCupid 데이터는 "
-                  "2012년 스냅샷이라 실제로 배정하고 30일을 기다릴 수 없어서, control(개입 안 받음)의 "
-                  "결과만 실제 역사(churn_actual)를 그대로 쓰고, treatment(개입 받음)의 결과는 자기소개 "
-                  "분량과 이탈률의 실제 상관관계(31.03pp 격차)를 절반만 — 보수적으로 — 인과 효과로 "
-                  "가정해서 만들었어요. 서비스에 실제로 적용하면 이 자리가 진짜 측정값으로 바뀌어요."))
-
-    c1, c2 = st.columns(2, gap="large")
-    with c1:
-        rows = [tuple(r) for r in balance.itertuples(index=False)]
-        show(table_card("배정이 공정했나요? (진짜 무작위 배정)",
-                        "두 집단의 평균 위험도가 비슷해야 이 비교를 신뢰할 수 있어요.",
-                        list(balance.columns), rows))
-    with c2:
-        rows = [tuple(r) for r in result.itertuples(index=False)]
-        show(table_card("30일 후 결과 (시뮬레이션)",
-                        "treatment(젤리보상 지급 가정)와 control(미지급, 실제 역사)을 비교했어요.",
-                        list(result.columns), rows))
-    show(note_box("잔존율 차이가 가정한 값(약 15.5pp)과 비슷하게 나온다면, 시뮬레이션이 설계한 대로 "
-                  "잘 작동했다는 뜻이에요 — 이게 '젤리보상이 실제로 효과가 있다'는 증거는 아니에요."))
+    """맨 아래: 실제 서비스 도입 후 전략 효과를 검증할 A/B 테스트 계획."""
+    show(section_title(
+        "전략 효과 A/B 테스트 계획",
+        "SERVICE의 What-if는 모델 예측의 변화를 보여주고, 실제 전략 효과는 운영 데이터로 별도 검증합니다.",
+    ))
+    show(check_list_card(
+        "실제 서비스 도입 후 검증 절차",
+        "임의의 효과 수치를 만들지 않고 실제 행동 로그가 쌓인 뒤 아래 순서로 비교합니다.",
+        [
+            ("1. 대상 선정", "SQL로 동일한 조건의 위험군을 선정합니다. 예: High 위험군 중 자기소개 미작성 사용자"),
+            ("2. 무작위 배정", "대상자를 처리군과 대조군에 무작위로 나누고 두 집단의 시작 위험도가 비슷한지 확인합니다."),
+            ("3. 전략 적용", "처리군에만 프로필 작성 가이드·젤리 보상 등의 전략을 적용하고 대조군은 기존 서비스를 유지합니다."),
+            ("4. 실제 결과 비교", "프로필 수정률, 7일 재방문율, 30일 이탈률을 실제 로그로 비교합니다."),
+        ],
+    ))
+    show(note_box(
+        "현재 OkCupid 데이터에는 캠페인 노출과 개입 이후 행동 로그가 없어 실제 A/B 효과값을 계산할 수 없습니다. "
+        "따라서 이 화면은 결과를 만들어 내는 시뮬레이션이 아니라, 실제 서비스에서 사용할 검증 구조를 설명합니다."
+    ))
 
 # ---------------------------------------------------------
 # 위험 수준별 내용. 전략을 바꾸고 싶으면 아래 글만 고치면 됩니다.
@@ -310,5 +248,5 @@ def render():
     # 조건에 맞는 실제 대상자 찾기 (DB 연결, predictions 테이블 실시간 조회)
     _sql_targeting_section()
 
-    # A/B 테스트 시뮬레이션 결과 (DB 연결)
+    # 실제 서비스 도입 후 A/B 테스트 검증 계획
     _ab_test_section()
