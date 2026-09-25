@@ -41,6 +41,21 @@ CREATE TABLE predictions_live (
 CREATE INDEX idx_live_created ON predictions_live (created_at DESC);
 CREATE INDEX idx_live_tier    ON predictions_live (risk_tier);
 
+COMMENT ON TABLE  predictions_live                     IS 'SERVICE 화면에서 실시간으로 진단한 프로필 기록. predictions(학습 데이터, 과거·고정)와 구분되는 별도 테이블';
+COMMENT ON COLUMN predictions_live.churn_prob          IS '이 진단의 예측 이탈 확률 (0~1)';
+COMMENT ON COLUMN predictions_live.risk_tier           IS 'predictions.risk_tier 와 같은 기준(High/Medium/Low)';
+COMMENT ON COLUMN predictions_live.age                 IS '진단 시 입력한 나이';
+COMMENT ON COLUMN predictions_live.sex                 IS '진단 시 입력한 성별. 모델 예측에는 안 쓰고 기록용';
+COMMENT ON COLUMN predictions_live.status              IS '진단 시 입력한 관계 상태';
+COMMENT ON COLUMN predictions_live.job                 IS '진단 시 입력한 직업';
+COMMENT ON COLUMN predictions_live.essay_count         IS '진단 시 입력한 자기소개 작성 칸 수';
+COMMENT ON COLUMN predictions_live.profile_completeness IS '진단 시 계산된 프로필 완성도 (SERVICE 화면 입력칸 제한으로 최대 약 0.59)';
+COMMENT ON COLUMN predictions_live.reason_1            IS '이 진단에서 SHAP 기여도 1위 항목';
+COMMENT ON COLUMN predictions_live.reason_2            IS 'SHAP 기여도 2위 항목';
+COMMENT ON COLUMN predictions_live.reason_3            IS 'SHAP 기여도 3위 항목';
+COMMENT ON COLUMN predictions_live.model_file          IS '이 진단에 사용된 .cbm 모델 파일 이름 (모델 교체 이력 추적용)';
+COMMENT ON COLUMN predictions_live.note                IS '자유 메모. note=''sample'' 인 행은 데모용 샘플 데이터';
+
 
 -- ════════════════════════════════════════════════════════════
 -- 2. 화면용 뷰
@@ -122,11 +137,11 @@ INSERT INTO predictions_live
      reason_1, reason_2, reason_3, model_file, note)
 VALUES
     (0.79, 'High',   27, 'm', 'single', NULL, 1, 0.12,
-     '자기소개 작성 칸 수 (위험 ↑)', '자기소개 길이 편차 (위험 ↑)', '자녀 유무 (위험 ↑)',
+     '자기소개 작성 칸 수 (위험↑)', '자기소개 길이 편차 (위험↑)', '자녀 유무 (위험↑)',
      'sample.cbm', 'sample'),
     (0.54, 'Medium', 27, 'm', 'single', NULL, 0, 0.06,
-     '키 (위험 ↑)', '자기소개 작성 칸 수 (위험 ↑)', '프로필 완성도 (위험 ↑)',
+     '키 (위험↑)', '자기소개 작성 칸 수 (위험↑)', '프로필 완성도 (위험↑)',
      'sample.cbm', 'sample'),
     (0.32, 'Low',    31, 'f', 'single', 'science / tech / engineering', 10, 1.00,
-     '자녀 희망 (안정 ↓)', '자기소개 칸당 분량 (안정 ↓)', '프로필 완성도 (안정 ↓)',
+     '자녀 희망 (안정↓)', '자기소개 칸당 분량 (안정↓)', '프로필 완성도 (안정↓)',
      'sample.cbm', 'sample');

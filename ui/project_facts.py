@@ -263,36 +263,38 @@ MODEL_COMPARISON = [
     ("Random Forest",       0.73108, 0.52892, 0.45748, 0.49062),
     ("XGBoost",             0.74095, 0.67912, 0.41602, 0.51596),
     ("LightGBM",            0.73965, 0.68353, 0.41249, 0.51450),
-    ("CatBoost",            0.74072, 0.69702, 0.41453, 0.51988),   # <- 최종 확정 (20-feature 재현값)
+    ("CatBoost",            0.74005, 0.69390, 0.41028, 0.51566),   # <- 최종 확정 (okcupid_modeling.ipynb 최종 재현값)
     ("MLP",                 0.73028, 0.19377, 0.58634, 0.29128),
 ]
 SELECTED_MODEL_ROW = 4      # 위 표에서 CatBoost 가 몇 번째 줄인지 (0부터 셈)
 
 # 채택 후보(CatBoost) 상세 성적
+# 출처: okcupid_modeling.ipynb 의 meow.fit_evaluation(X_test, Y_test) 최종 출력
 MODEL_METRICS = {
-    "ROC-AUC": 0.74072,
-    "PR-AUC": 0.48635,
-    "Recall": 0.69702,
-    "Precision": 0.41453,
-    "F1": 0.51988,
-    "Accuracy": 0.66885,
+    "ROC-AUC": 0.74005,
+    "PR-AUC": 0.48525,
+    "Recall": 0.69390,
+    "Precision": 0.41028,
+    "F1": 0.51566,
+    "Accuracy": 0.66471,
 }
-CV_ROC_AUC = 0.73644        # 5-Fold 교차검증 평균 ROC-AUC (표준편차 0.00356)
+CV_ROC_AUC = 0.73689        # 5-Fold 교차검증 평균 ROC-AUC (표준편차 0.00374)
+CV_PR_AUC = 0.48980         # 5-Fold 교차검증 평균 PR-AUC (표준편차 0.00536)
 
 MODEL_CAVEAT = ("이 수치는 학습에 전혀 쓰이지 않은 평가 데이터(14,987명, 전체의 25%)로 "
                 "확인한 진짜 성능이에요. feature 20개는 학습 데이터만 분석해서 골랐기 때문에 "
                 "평가 데이터가 선택 과정에 섞이지 않았어요.")
 
 # SHAP(각 항목이 예측에 준 영향) 상위 5개 -- (feature 이름, 쉬운 이름, 설명)
-# 출처: 최종 모델을 직접 재현해서 계산한 진짜 SHAP 값 (common/shap_plots.py 의 ShapAnalyzer).
-# 평균 절댓값 기준 순위: has_kids(0.464) > diet_strict(0.142) > essay_total_words(0.132)
-#                      > essay_count(0.115) > essay_len_std(0.097)
+# 출처: okcupid_modeling.ipynb 의 meow_shap.get_mean_abs(30) 최종 출력 (진짜 SHAP 값)
+# 평균 절댓값 기준 순위: has_kids(0.467) > essay_total_words(0.149) > diet_strict(0.114)
+#                      > essay_count(0.114) > wants_kids(0.101)
 SHAP_RANKING = [
     ("has_kids", "자녀 유무 응답", "자녀 항목을 비워 두면 이탈 쪽, '자녀 없음'이라고 답하면 유지 쪽으로 기여"),
-    ("diet_strict", "식단 엄격도", "식단을 얼마나 엄격히 지키는지에 대한 응답"),
     ("essay_total_words", "자기소개 총 단어 수", "적게 쓸수록 이탈 쪽, 많이 쓸수록 유지 쪽"),
+    ("diet_strict", "식단 엄격도", "식단을 얼마나 엄격히 지키는지에 대한 응답"),
     ("essay_count", "자기소개 작성 개수", "적게 채울수록 이탈 쪽, 많이 채울수록 유지 쪽"),
-    ("essay_len_std", "자기소개 칸별 길이 편차", "여러 칸에 고르게 썼는지, 한 칸에 몰아 썼는지"),
+    ("wants_kids", "자녀 희망 여부", "자녀를 원하는지에 대한 응답"),
 ]
 
 # =========================================================
