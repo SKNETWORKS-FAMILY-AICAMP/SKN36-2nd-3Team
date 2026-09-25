@@ -14,14 +14,14 @@ GitHub에 올려야 할 것은 SQL 파일과 `predictions.csv` 뿐입니다.
 
 같은 파일을 두 명이 고치면 merge conflict가 납니다. 미리 나눠 두면 안 납니다.
 
-| 폴더 | 주인 | 나머지는 |
-| --- | --- | --- |
-| `notebooks/eda/` | EDA 담당 | 읽기만 |
-| `notebooks/model/` · `models/` | 모델링 담당 | 읽기만 |
-| `sql/` · `ab_test/` | **데이터(나)** | 읽기만 |
-| `app/` · `frontend/` | UI 담당 | 읽기만 |
-| `README.md` | 팀장 | 고칠 게 있으면 말하기 |
-| `common/` | **아무도 안 건드림** | 고치면 전원이 깨집니다 |
+| 폴더                                | 주인                       | 나머지는               |
+| ----------------------------------- | -------------------------- | ---------------------- |
+| `notebooks/eda/`                  | EDA 담당                   | 읽기만                 |
+| `notebooks/model/` · `models/` | 모델링 담당                | 읽기만                 |
+| `sql/` · `ab_test/`            | **데이터(나)**       | 읽기만                 |
+| `app/` · `frontend/`           | UI 담당                    | 읽기만                 |
+| `README.md`                       | 팀장                       | 고칠 게 있으면 말하기  |
+| `common/`                         | **아무도 안 건드림** | 고치면 전원이 깨집니다 |
 
 `common/` 을 고쳐야 할 일이 생기면 **반드시 단톡방에 먼저 말하세요.**
 `feature_extraction.py` 가 바뀌면 모델도, 예측값도, SQL도 전부 다시 만들어야 합니다.
@@ -30,15 +30,15 @@ GitHub에 올려야 할 것은 SQL 파일과 `predictions.csv` 뿐입니다.
 
 ## GitHub에 올릴 것 / 안 올릴 것
 
-| | 파일 | 용량 |
-| :---: | --- | --- |
-| ✅ | `sql/` 전체 (`predictions.csv` 포함) | 21MB |
-| ✅ | `ab_test/` · `docker-compose.yml` | 작음 |
-| ✅ | 노트북 (`.ipynb`) | 작음 |
-| ✅ | `common/` | 작음 |
-| ❌ | `data/okcupid_profiles.csv` | **131MB — 올리면 push가 막힙니다** |
-| ❌ | `models/*.cbm` | 각자 필요 없음 |
-| ❌ | `data/*.db` | 자동 생성물 |
+|    | 파일                                     | 용량                                      |
+| :-: | ---------------------------------------- | ----------------------------------------- |
+| ✅ | `sql/` 전체 (`predictions.csv` 포함) | 21MB                                      |
+| ✅ | `ab_test/` · `docker-compose.yml`   | 작음                                      |
+| ✅ | 노트북 (`.ipynb`)                      | 작음                                      |
+| ✅ | `common/`                              | 작음                                      |
+| ❌ | `data/okcupid_profiles.csv`            | **131MB — 올리면 push가 막힙니다** |
+| ❌ | `models/*.cbm`                         | 각자 필요 없음                            |
+| ❌ | `data/*.db`                            | 자동 생성물                               |
 
 `.gitignore` 를 같이 넣어 뒀습니다. 그대로 최상단에 두면 됩니다.
 
@@ -58,16 +58,29 @@ docker compose up -d
 1~2분 뒤 DBeaver로 접속하면 59,946행이 들어와 있습니다.
 **파이썬도, 모델도, 원본 CSV도 필요 없습니다.**
 
+
+### ⭐이미 프로젝트를 받은 팀원은
+
+SQL 스키마나 컬럼이 바뀐 경우, 기존 DB에는 변경사항이 자동으로 반영되지 않을 수 있습니다.
+
+최신 dev를 받은 뒤 DB를 다시 생성합니다.
+
+```bash
+git pull origin dev
+docker compose down -v
+docker compose up -d
+```
+
 ---
 
 ## 누구에게 무엇을 주나
 
-| 받는 사람 | 주는 것 | 한 줄 설명 |
-| --- | --- | --- |
-| **UI 담당** | 뷰 목록 + `sql/query/01_check.sql` | "`SELECT * FROM v_insight_risk` 한 줄이면 됩니다. 계산은 DB가 끝내 뒀어요." |
-| **EDA 담당** | `sql/query/02_hypothesis.sql` | "가설 H1~H3을 SQL로 검증한 결과입니다. 발표 자료 숫자로 쓰세요." |
-| **모델링 담당** | `05_load_data.sql` 의 존재 | "모델이 바뀌면 `predictions.csv` 만 갈아 끼우면 됩니다." |
-| **팀장** | `ab_test/README.md` | "인과 검증은 A/B로 한다는 설계입니다. 질문 방어용." |
+| 받는 사람             | 주는 것                             | 한 줄 설명                                                                    |
+| --------------------- | ----------------------------------- | ----------------------------------------------------------------------------- |
+| **UI 담당**     | 뷰 목록 +`sql/query/01_check.sql` | "`SELECT * FROM v_insight_risk` 한 줄이면 됩니다. 계산은 DB가 끝내 뒀어요." |
+| **EDA 담당**    | `sql/query/02_hypothesis.sql`     | "가설 H1~H3을 SQL로 검증한 결과입니다. 발표 자료 숫자로 쓰세요."              |
+| **모델링 담당** | `05_load_data.sql` 의 존재        | "모델이 바뀌면`predictions.csv` 만 갈아 끼우면 됩니다."                     |
+| **팀장**        | `ab_test/README.md`               | "인과 검증은 A/B로 한다는 설계입니다. 질문 방어용."                           |
 
 ---
 
@@ -107,10 +120,10 @@ docker compose up -d
 
 ## 자주 나는 문제
 
-| 증상 | 원인 | 해결 |
-| --- | --- | --- |
-| `up -d` 했는데 테이블이 비어 있음 | `predictions.csv` 가 안 올라감 | `.gitignore` 확인 후 다시 push |
-| `port is already allocated` | 5432를 다른 것이 쓰는 중 | `docker-compose.yml` 을 `"5433:5432"` 로 |
-| SQL을 고쳤는데 반영이 안 됨 | 컨테이너가 이미 만들어짐 | `down -v` → `up -d` |
-| 뷰만 고치고 싶음 | — | DBeaver에서 **Alt + X** (컨테이너 그대로) |
-| `git push` 가 거부됨 | 131MB CSV를 올림 | `.gitignore` 넣고 커밋 다시 |
+| 증상                                | 원인                             | 해결                                           |
+| ----------------------------------- | -------------------------------- | ---------------------------------------------- |
+| `up -d` 했는데 테이블이 비어 있음 | `predictions.csv` 가 안 올라감 | `.gitignore` 확인 후 다시 push               |
+| `port is already allocated`       | 5432를 다른 것이 쓰는 중         | `docker-compose.yml` 을 `"5433:5432"` 로   |
+| SQL을 고쳤는데 반영이 안 됨         | 컨테이너가 이미 만들어짐         | `down -v` → `up -d`                       |
+| 뷰만 고치고 싶음                    | —                               | DBeaver에서**Alt + X** (컨테이너 그대로) |
+| `git push` 가 거부됨              | 131MB CSV를 올림                 | `.gitignore` 넣고 커밋 다시                  |

@@ -34,6 +34,8 @@ SELECT
 FROM v_test
 GROUP BY risk_tier;
 
+COMMENT ON VIEW v_insight_risk IS '위험 등급(High/Medium/Low)별 인원·비율·실제 이탈률. INSIGHT 최상단 도넛/막대용';
+
 
 -- ════════════════════════════════════════════════════════════
 -- 2. v_insight_completeness — 프로필 완성도별 이탈률
@@ -47,6 +49,8 @@ SELECT
 FROM v_user
 WHERE split = 'test'
 GROUP BY completeness_band;
+
+COMMENT ON VIEW v_insight_completeness IS '프로필 완성도 5구간(v_user.completeness_band 기준)별 실제 이탈률. INSIGHT용';
 
 
 -- ════════════════════════════════════════════════════════════
@@ -65,6 +69,8 @@ SELECT
 FROM v_test
 GROUP BY essay_count;
 
+COMMENT ON VIEW v_insight_essay IS '자기소개 작성 칸 수(0~10)별 실제 이탈률과 직전 칸 대비 변화량. INSIGHT용';
+
 
 -- ════════════════════════════════════════════════════════════
 -- 4. v_insight_reason — 고위험 판정 사유 TOP
@@ -79,6 +85,8 @@ SELECT
 FROM v_test
 WHERE risk_tier = 'High'
 GROUP BY reason_1;
+
+COMMENT ON VIEW v_insight_reason IS 'High 등급 사용자의 1순위 위험 근거(reason_1)별 인원·평균 위험도. INSIGHT용';
 
 
 -- ════════════════════════════════════════════════════════════
@@ -100,6 +108,8 @@ SELECT
 FROM v_test
 GROUP BY 1;
 
+COMMENT ON VIEW v_insight_calibration IS '예측 확률 구간별 평균 예측 확률 vs 실제 이탈률 비교 (모델 신뢰도 확인용). ABOUT용';
+
 
 -- ════════════════════════════════════════════════════════════
 -- 6. v_insight_segment — 세그먼트 교차 (성별 × 연령대 × 등급)
@@ -120,6 +130,8 @@ SELECT
 FROM v_test
 WHERE age IS NOT NULL
 GROUP BY 1, 2, 3;
+
+COMMENT ON VIEW v_insight_segment IS '성별×연령대×위험등급 교차표. INSIGHT 필터 영역에서 WHERE로 걸러 씀';
 
 
 -- ════════════════════════════════════════════════════════════
@@ -143,6 +155,8 @@ SELECT
     ROUND(AVG(churn_prob)::numeric * 100, 1)   AS 평균위험도
 FROM v_test
 GROUP BY 1;
+
+COMMENT ON VIEW v_retention_action IS '규칙 기반 개입 그룹(A~D)별 대상 인원·현재 이탈률·평균 위험도. RETENTION 메인용';
 
 
 -- ════════════════════════════════════════════════════════════
@@ -169,6 +183,8 @@ SELECT
     END                                              AS 추천액션
 FROM v_test
 WHERE risk_tier = 'High';
+
+COMMENT ON VIEW v_retention_list IS 'High 등급 사용자 명단 + 추천 액션. RETENTION 하단 CSV 다운로드용';
 
 
 -- ════════════════════════════════════════════════════════════
@@ -207,6 +223,8 @@ SELECT 가설,
        ROUND(반대::numeric * 100, 1)              AS 반대집단_이탈률,
        ROUND((해당 / NULLIF(반대, 0))::numeric, 2) AS 배수
 FROM h;
+
+COMMENT ON VIEW v_about_hypothesis IS 'H1~H4 가설 검증 결과를 한 표로 정리. ABOUT용';
 
 
 -- ── 만들어진 뷰 확인 ─────────────────────────────────────────

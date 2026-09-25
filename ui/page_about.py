@@ -139,7 +139,7 @@ def _tab_model():
     show(note_box("이렇게 읽어요: Recall 이 약 70% 라서 실제 이탈자 10명 중 7명을 찾아내요. 대신 Precision 이 약 41% 라서 "
                   "이탈로 예측한 사람 중 절반 이상은 사실 이탈하지 않아요(오탐). 이탈자가 전체의 25.7% 로 적은 데이터라 "
                   "Accuracy 보다 Recall · PR-AUC 를 중심으로 봤어요."))
-    show(note_box(f"5-Fold 교차검증 평균 ROC-AUC 는 {facts.CV_ROC_AUC:.3f} 예요. {facts.MODEL_CAVEAT}"))
+    show(note_box(f"5-Fold 교차검증 평균 ROC-AUC 는 {facts.CV_ROC_AUC:.3f}, PR-AUC 는 {facts.CV_PR_AUC:.3f} 예요. {facts.MODEL_CAVEAT}"))
     show(note_box(facts.PROBABILITY_CALIBRATION_NOTE))
 
 def _tab_limits():
