@@ -32,10 +32,25 @@ def _reason_base_name(reason_text):
     return re.sub(r"\s*\([^)]*\)\s*$", "", reason_text).strip()
 
 
-def _strategy_for_reason(reason_text):
-    """위험 신호(reason_1) -> 어울리는 리텐션 전략 이름. 매칭이 없으면 기본 전략을 돌려준다."""
+_TIER_KEY = {"High": "high", "Medium": "mid", "Low": "low"}
+
+
+def _strategy_for_reason(reason_text, risk_tier):
+    """위험 신호(reason_1) -> 이 사람이 받는 전략 문구 (표에 한 칸으로 보여줄 문자열).
+
+    ⚠️ SERVICE 화면과 같은 원칙: 등급 공통 혜택(facts.RISK_BASELINE_BENEFIT)은 신호가 뭐든
+    예외 없이 받고, 신호가 실제로 개입 가능한(프로필을 고쳐서 개선할 수 있는) 것이면 그 위에
+    개인화 안내를 '+' 로 덧붙여서 같이 보여줘요. (전에는 개입 가능한 사람은 개인화 안내만
+    한 칸에 보여서, "이 사람들은 공통 혜택을 안 받나?"처럼 보이는 문제가 있었어요 — 실제로는
+    둘 다 받는데, 표에 하나만 보여서 그렇게 보인 거예요. 이제 표에도 둘 다 보이게 했어요.)
+    """
     base = _reason_base_name(reason_text)
-    return facts.REASON_TO_STRATEGY.get(base, facts.REASON_TO_STRATEGY_DEFAULT)
+    baseline_name, _ = facts.RISK_BASELINE_BENEFIT.get(_TIER_KEY.get(risk_tier, "mid"),
+                                                        facts.RISK_BASELINE_BENEFIT["mid"])
+    if base in facts.ACTIONABLE_SIGNALS:
+        action_name, _ = facts.SIGNAL_ACTIONS.get(base, facts.SIGNAL_ACTIONS_DEFAULT)
+        return f"{baseline_name} + {action_name}"
+    return baseline_name
 
 
 # 화면 선택창에 쓸 옵션들. "전체"를 고르면 그 조건은 걸지 않아요(db.query_segment 에 None 으로 전달).
@@ -132,7 +147,8 @@ def _render_segment_list(result, risk_label):
     """우선 관리 대상 명단. (전략 카드 아래, 맨 마지막에 놓아요)"""
     if result["n"] == 0:
         return
-    table_rows = [(f"#{uid}", tier, f"{prob * 100:.1f}%", _reason_base_name(reason) or "-", _strategy_for_reason(reason))
+    table_rows = [(f"#{uid}", tier, f"{prob * 100:.1f}%", _reason_base_name(reason) or "-",
+                  _strategy_for_reason(reason, tier))
                  for uid, tier, prob, reason in result["rows"]]
     show(table_card(f"우선 관리 대상 (이탈 확률 높은 순 {len(table_rows)}명)",
                     f"현재 조건의 {risk_label} 사용자 {result['n']:,}명 중 이탈 확률이 가장 높은 사용자예요. 정렬: 이탈 확률 ↓",

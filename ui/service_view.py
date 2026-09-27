@@ -132,30 +132,9 @@ LEVEL_BY_KIND = {level["kind"]: level for level in facts.LEVELS}
 # feature 영문 이름 -> 화면에 보여줄 한글 이름. project_facts.py 에서 한 번만 만들어 둔 걸 가져다 써요.
 FEATURE_LABELS = facts.FEATURE_LABELS
 
-# SERVICE 결과에서 SHAP 신호와 운영 액션을 직접 연결해 보여주기 위한 설명표.
-# RETENTION의 큰 전략 범주는 유지하되, 이 화면에서는 왜 추천됐는지가 바로 보이도록 구체화합니다.
-SIGNAL_ACTIONS = {
-    "작성한 칸 수": ("자기소개 작성 유도", "비어 있는 자기소개 항목을 단계별로 채우도록 안내"),
-    "총 단어 수": ("자기소개 보완 가이드", "작성 예시와 질문형 가이드로 소개 분량 보완"),
-    "칸당 평균 글자 수": ("자기소개 품질 가이드", "짧거나 과도하게 긴 항목을 읽기 좋은 분량으로 안내"),
-    "칸별 길이 편차": ("프로필 균형 개선", "일부 항목에 치우친 자기소개를 고르게 보완하도록 안내"),
-    "프로필 완성도": ("프로필 완성 리워드", "미작성 항목을 완료하면 젤리 등 보상 제공"),
-    "학력 단계": ("학력 정보 확인", "오래되거나 누락된 학력 정보를 다시 확인하도록 요청"),
-    "졸업/재학/중퇴": ("학업 상태 업데이트", "졸업·재학·중퇴 상태를 현재 정보로 갱신하도록 안내"),
-    "식단 종류": ("취향 기반 추천", "식단 취향이 비슷한 상대와 관심사를 우선 추천"),
-    "식단 엄격도": ("식단 정보 재확인", "현재 식단 기준을 다시 선택하고 취향 추천에 반영"),
-    "관계 상태": ("관계 상태 재확인", "현재 만남 목적을 확인한 뒤 맞춤 추천·재접속 알림 제공"),
-    "직업": ("직업·관심사 기반 추천", "직업과 연관된 관심사 그룹이나 상대를 추천"),
-    "자녀 유무": ("가족 정보 선택 안내", "민감정보임을 명시하고 선택적으로 정보를 보완하도록 안내"),
-    "자녀 항목 무응답": ("가족 정보 선택 안내", "응답 또는 비공개를 명확히 선택하도록 안내"),
-    "자녀 희망": ("관계 가치관 추천", "자녀 계획이 비슷한 상대를 우선 추천"),
-    "종교": ("가치관 기반 추천", "종교·가치관 선호가 비슷한 상대를 추천"),
-    "흡연 정도": ("라이프스타일 추천", "흡연 성향이 비슷한 상대를 우선 추천"),
-    "약물 사용 정도": ("라이프스타일 정보 확인", "라이프스타일 정보를 다시 확인하도록 안내"),
-    "연소득": ("소득 공개 설정 확인", "공개 여부와 입력값을 다시 확인하도록 안내"),
-    "키": ("프로필 정보 확인", "현재 프로필 정보가 정확한지 확인하도록 안내"),
-    "나이": ("기본 정보 확인", "가입 정보와 현재 프로필 정보가 일치하는지 확인"),
-}
+# SHAP 신호별 운영 액션 설명표는 project_facts.py 로 옮겼어요. RETENTION의 우선 관리
+# 대상 표도 같은 표를 쓰게 해서, 같은 신호면 어느 화면에서 봐도 같은 설명이 나가게 했어요.
+SIGNAL_ACTIONS = facts.SIGNAL_ACTIONS
 
 # What-if에서 바꿀 수 있는 실제 모델 입력값. 화면(app.py)의 카테고리와 정확히 맞춥니다.
 WHAT_IF_FIELDS = {
@@ -343,48 +322,53 @@ def _card_strategies(info, prediction=None):
     """카드 3: 추천 리텐션 전략.
 
     prediction 이 있으면 이 사람의 SHAP 신호 중 '위험을 실제로 높이는 쪽'(양수)만 골라서
-    RETENTION.REASON_TO_STRATEGY 로 전략을 찾아 보여줘요. (전에는 등급 전체 전략 5개를
-    무조건 다 보여줬는데, 그러면 프로필을 열심히 쓴 사람도 자기소개랑 상관없는 이유로 High
-    등급이 됐을 때 "프로필 작성 유도"를 받는 식으로 안 맞는 전략이 나갔어요. 이제는 이 사람의
-    진짜 위험 원인에 맞는 전략만 추려서 보여줘요.)
-    없으면 지금까지처럼 입력값에서 찾은 신호에 맞는 전략만 골라서 보여줘요.
+    project_facts.SIGNAL_ACTIONS 로 운영 액션을 찾아 보여줘요.
+
+    ⚠️ '등급 공통 혜택'을 1번으로 예외 없이 항상 보여주고, 개입 가능한(사용자가 실제로
+    프로필을 고쳐서 개선할 수 있는) 신호가 있으면 그 위에 '보너스'로 개인화 안내를 더해요.
+    (신호가 하나라도 잡히면 그 신호 설명만 보여주면, "자녀 유무"처럼 사용자가 바꿀 방법이
+    없는 신호가 잡힌 사람은 아무 혜택도 못 받는 것처럼 보이고, 반대로 개입 가능한 사람은
+    "혜택 없이 숙제만 받는다"로 느껴질 수 있어요. 그래서 공통 혜택을 먼저 깔고, 개인화
+    안내는 순수 추가 보너스로만 얹었어요.)
     """
     if prediction:
         level = LEVEL_BY_KIND[prediction["level"]]
-        # 위험을 '낮추는'(음수) 신호는 전략이 필요 없어서 빼고, '높이는'(양수) 신호만 남겨요.
+        # 위험을 '낮추는'(음수) 신호는 필요 없어서 빼고, '높이는'(양수) 신호만 남겨요.
         risk_signals = [(code, value) for code, value in prediction["top_signals"][:3] if value > 0]
 
-        action_groups = {}       # 같은 액션으로 이어지는 신호는 한 행으로 묶어요.
+        # 1번: 등급 공통 혜택. 신호가 뭐든 상관없이 예외 없이 받아요.
+        baseline_name, baseline_text = facts.RISK_BASELINE_BENEFIT[prediction["level"]]
+        rows = (f'<div class="action-row"><div class="action-index">01</div><div class="action-main">'
+               f'<div class="action-source">{esc(level["name"])} 등급 공통 혜택</div>'
+               f'<div class="action-name">{esc(baseline_name)}</div>'
+               f'<div class="action-desc">{esc(baseline_text)}</div></div></div>')
+
+        # 2번부터: 실제로 개입 가능한 신호가 있을 때만 보너스로 추가해요.
+        action_groups = {}
         for code, _ in risk_signals:
             signal_name = FEATURE_LABELS.get(code, code)
-            action_name, action_text = SIGNAL_ACTIONS.get(
-                signal_name,
-                (facts.REASON_TO_STRATEGY.get(signal_name, facts.REASON_TO_STRATEGY_DEFAULT),
-                 "해당 프로필 정보를 확인하고 사용자에게 맞는 운영 전략을 적용"),
-            )
+            if signal_name not in facts.ACTIONABLE_SIGNALS:
+                continue
+            action_name, action_text = SIGNAL_ACTIONS.get(signal_name, facts.SIGNAL_ACTIONS_DEFAULT)
             if action_name not in action_groups:
                 action_groups[action_name] = {"signals": [], "text": action_text}
             action_groups[action_name]["signals"].append(signal_name)
 
-        if action_groups:
-            header = (f'<div class="dash-sub" style="margin-top:-8px">'
-                      f'각 예측 신호가 어떤 운영 액션으로 이어지는지 연결했습니다.</div>')
-        else:
-            # 상위 신호가 전부 '보호 요인'이면(위험을 높이는 뚜렷한 신호가 없으면), 등급 전체 전략으로 대신해요.
-            action_groups = {
-                name: {"signals": [f'{level["name"]} 등급'], "text": text}
-                for _, name, text in level["actions"][:3]
-            }
-            header = (f'<div class="dash-sub" style="margin-top:-8px">'
-                      f'뚜렷하게 위험을 높인 신호가 없어서, {esc(level["name"])} 등급의 기본 전략을 보여줘요.</div>')
-
-        rows = ""
-        for rank, (action_name, action) in enumerate(list(action_groups.items())[:3], start=1):
+        for rank, (action_name, action) in enumerate(list(action_groups.items())[:2], start=2):
             sources = " · ".join(dict.fromkeys(action["signals"]))
             rows += (f'<div class="action-row"><div class="action-index">0{rank}</div><div class="action-main">'
                      f'<div class="action-source">{esc(sources)} <span>→</span></div>'
                      f'<div class="action-name">{esc(action_name)}</div>'
                      f'<div class="action-desc">{esc(action["text"])}</div></div></div>')
+
+        if action_groups:
+            header = (f'<div class="dash-sub" style="margin-top:-8px">'
+                      f'{esc(level["name"])} 등급 공통 혜택은 누구나 받고, 프로필에서 직접 고칠 수 있는 '
+                      f'신호가 있으면 맞춤 안내를 추가로 더해요.</div>')
+        else:
+            header = (f'<div class="dash-sub" style="margin-top:-8px">'
+                      f'{esc(level["name"])} 등급 공통 혜택이에요. 직접 개선할 수 있는 프로필 신호는 '
+                      f'뚜렷하게 확인되지 않았어요.</div>')
         body = header + rows
     elif info["strategies"]:
         rows = ""

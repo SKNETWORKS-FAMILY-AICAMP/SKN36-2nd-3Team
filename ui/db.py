@@ -93,19 +93,24 @@ DB_CONFIG = {
     "password": os.getenv("DAYZERO_DB_PASSWORD", "dayzero123"),
 }
 
-
 # ---------------------------------------------------------
 # 2) 연결
 # ---------------------------------------------------------
-@st.cache_resource
+# 성공한 엔진만 여기 담아 둬요. @st.cache_resource 를 그대로 쓰면 "연결 실패(None)"까지
+# 영원히 기억해 버려서, Streamlit이 켜지는 순간 DB(Docker)가 아직 안 떠 있어서 한 번
+# 실패하면 그 뒤로 DB가 멀쩡히 떠도 계속 실패로 나오는 문제가 있었어요(실제로 겪음).
+# 그래서 직접 캐시를 관리해서, 성공한 적이 없으면 호출될 때마다 다시 연결을 시도해요.
+_engine_cache = {"engine": None}
+
+
 def _get_engine():
-    """DB 연결 엔진을 한 번만 만들어서 재사용한다. 연결에 실패하면 None.
+    """DB 연결 엔진을 재사용한다. 아직 한 번도 성공한 적이 없으면 매번 다시 시도한다.
 
     SQLAlchemy 의 '엔진'은 필요할 때 알아서 연결을 열고 닫아 주는 관리자예요. (직접 연결 하나만
     들고 있는 것보다 안전해서 pandas 가 공식적으로 이 방식을 권장해요)
-    @st.cache_resource : Streamlit 이 이 함수의 결과를 기억해 뒀다가, 화면을 조작할 때마다
-    새로 만들지 않고 같은 엔진을 계속 씁니다.
     """
+    if _engine_cache["engine"] is not None:
+        return _engine_cache["engine"]
     try:
         from sqlalchemy import create_engine, text
     except ImportError:
@@ -116,9 +121,10 @@ def _get_engine():
         engine = create_engine(url, connect_args={"connect_timeout": 3})
         with engine.connect() as conn:            # 진짜로 연결이 되는지 한 번 확인
             conn.execute(text("SELECT 1"))
+        _engine_cache["engine"] = engine           # 성공했을 때만 기억해 둠
         return engine
     except Exception:
-        return None
+        return None      # 실패는 기억 안 함 -> 다음 호출에서 다시 시도
 
 
 def is_connected() -> bool:
@@ -197,6 +203,7 @@ def log_prediction(values: dict) -> bool:
         return True
     except Exception:
         return False
+    
 
 
 # ---------------------------------------------------------
