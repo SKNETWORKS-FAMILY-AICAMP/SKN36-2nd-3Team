@@ -189,7 +189,7 @@ PERSONAS = [
         "traits": [("프로필 가장 덜 채운 구간", KEY_SIGNALS[0]["high_rate"]),
                    ("자기소개 총 100자 이하", KEY_SIGNALS[1]["high_rate"]),
                    ("자녀 항목 무응답", KEY_SIGNALS[2]["high_rate"])],
-        "actions": ["프로필 작성 유도", "재접속 알림"],
+        "actions": ["무료 Like · 재참여 혜택", "자기소개 작성 유도"],
     },
     {
         "name": "칸만 채운 유형", "level": "high", "level_text": "이탈률 높은 유형",
@@ -198,7 +198,7 @@ PERSONAS = [
         "headline_text": "자기소개 10칸 · 칸당 50자 이하",
         "headline_rate": _RATES[3][0], "headline_n": _COUNTS[3][0],
         "traits": [("같은 10칸이라도 칸당 700자 초과면", _RATES[3][4])],
-        "actions": ["프로필 개선 가이드", "관심사 추가 입력 유도"],
+        "actions": ["무료 Like · 재참여 혜택", "자기소개 품질 가이드"],
     },
     {
         "name": "적당히 채운 유형", "level": "mid", "level_text": "평균보다 높은 유형",
@@ -208,7 +208,7 @@ PERSONAS = [
         "headline_rate": _RATES[1][1], "headline_n": _COUNTS[1][1],
         "traits": [("프로필 2구간", COMPLETENESS_GROUPS[1][1]),
                    ("참고 · 전체 평균", CHURN_RATE)],
-        "actions": ["신규 상대 추천", "관심사 추가 입력 유도"],
+        "actions": ["탐색 활성화 혜택", "자기소개 보완 가이드"],
     },
     {
         "name": "꼼꼼히 채운 유형", "level": "low", "level_text": "이탈률 낮은 유형",
@@ -219,7 +219,7 @@ PERSONAS = [
         "traits": [("프로필 가장 많이 채운 구간", KEY_SIGNALS[0]["low_rate"]),
                    ("자기소개에 링크 있음", KEY_SIGNALS[3]["low_rate"]),
                    ("자녀 항목 응답", KEY_SIGNALS[2]["low_rate"])],
-        "actions": ["프리미엄 기능 안내", "VIP 구독 전환 후보"],
+        "actions": ["프리미엄 기능 체험", "프리미엄 전환 후보"],
     },
 ]
 
@@ -256,14 +256,14 @@ PROBABILITY_CALIBRATION_NOTE = (
 # SERVICE 화면에서 "이 등급은 실제로 이 정도 위험도예요"라고 설명할 때 이 숫자를 써요.
 TIER_ACTUAL_RATES = {"low": 9.9, "mid": 26.0, "high": 49.0}
 
-# (모델, ROC-AUC, Recall, Precision, F1)  -- 같은 25개 feature, 기준 임계값 0.5
+# (모델, ROC-AUC, Recall, Precision, F1)  -- 모두 같은 당시 25개 feature, 기준 임계값 0.5 (이후 20개로 줄임)
 # 출처: 인공지능 학습 결과서 '모델 비교' 표
 MODEL_COMPARISON = [
     ("Logistic Regression", 0.72869, 0.69079, 0.39961, 0.50632),
     ("Random Forest",       0.73108, 0.52892, 0.45748, 0.49062),
     ("XGBoost",             0.74095, 0.67912, 0.41602, 0.51596),
     ("LightGBM",            0.73965, 0.68353, 0.41249, 0.51450),
-    ("CatBoost",            0.74005, 0.69390, 0.41028, 0.51566),   # <- 최종 확정 (okcupid_modeling.ipynb 최종 재현값)
+    ("CatBoost",            0.74146, 0.69857, 0.41424, 0.52008),   # <- 채택 (결과서 모델 비교표, 다른 모델과 같은 당시 25개 Feature 기준)
     ("MLP",                 0.73028, 0.19377, 0.58634, 0.29128),
 ]
 SELECTED_MODEL_ROW = 4      # 위 표에서 CatBoost 가 몇 번째 줄인지 (0부터 셈)
@@ -281,9 +281,9 @@ MODEL_METRICS = {
 CV_ROC_AUC = 0.73689        # 5-Fold 교차검증 평균 ROC-AUC (표준편차 0.00374)
 CV_PR_AUC = 0.48980         # 5-Fold 교차검증 평균 PR-AUC (표준편차 0.00536)
 
-MODEL_CAVEAT = ("이 수치는 학습에 전혀 쓰이지 않은 평가 데이터(14,987명, 전체의 25%)로 "
-                "확인한 진짜 성능이에요. feature 20개는 학습 데이터만 분석해서 골랐기 때문에 "
-                "평가 데이터가 선택 과정에 섞이지 않았어요.")
+MODEL_CAVEAT = ("이 수치는 모델 학습에 쓰이지 않은 평가 데이터(14,987명, 전체의 25%)로 확인한 성능이에요. "
+                "다만 평가 데이터가 feature를 정리하는 과정에도 쓰였기 때문에, 별도의 독립 평가 데이터로 "
+                "다시 확인해야 해요.")
 
 # SHAP(각 항목이 예측에 준 영향) 상위 5개 -- (feature 이름, 쉬운 이름, 설명)
 # 출처: okcupid_modeling.ipynb 의 meow_shap.get_mean_abs(30) 최종 출력 (진짜 SHAP 값)
@@ -311,6 +311,10 @@ LIMITS = [
      "Like, Match, Message, 결제 같은 기록이 없어서 '매칭이 안 돼서 떠난다' 같은 가설은 검증하지 못해요."),
     ("프로필과 이탈은 원인이 아니라 '연관성'이에요",
      "프로필 특징이 이탈을 일으켰다고 단정할 수 없고, 함께 나타나는 경향을 본 것이에요."),
+    ("오탐이 꽤 많아요",
+     "Precision이 약 41%라서 이탈로 예측한 사람 중 절반 이상은 실제로 이탈하지 않아요. 자동 차단이 아니라 관리자가 먼저 확인할 대상을 고르는 용도예요."),
+    ("평가 데이터를 여러 번 썼어요",
+     "평가용 Test 데이터가 feature를 정리하는 과정에도 쓰였어요. 별도의 독립 평가 데이터로 다시 확인해야 해요."),
     ("오래된 지역 데이터예요",
      f"{DATASET_COLLECTED}, {DATASET_AREA} 데이터라서 지금의 다른 플랫폼에 그대로 적용하기는 어려워요."),
     ("민감한 정보는 조심해서 다뤄요",
@@ -342,7 +346,7 @@ PIPELINE = [
      f"{TOTAL_USERS:,}명 · {RAW_COLUMNS}개 컬럼"),
     ("🧹", "전처리", "이탈 정답을 만들고, 값을 정리하고, 새 항목을 만들어요. 빈칸도 하나의 신호로 남겨요.",
      f"{RAW_COLUMNS}개 컬럼 → {FEATURE_COUNT}개 feature"),
-    ("🤖", "모델링", "여러 모델을 같은 조건으로 비교해서 성능이 가장 좋은 모델을 골라요.",
+    ("🤖", "모델링", "여러 모델을 같은 조건으로 비교하고, 성능과 해석 가능성을 함께 보고 골라요.",
      f"{MODEL_NAME} · ROC-AUC {MODEL_METRICS['ROC-AUC']:.3f}"),
     ("🖥️", "서비스", "프로필을 입력하면 이탈 위험과 유지 전략을 보여주는 웹 화면을 만들어요.",
      "Streamlit 웹 화면"),
@@ -355,6 +359,7 @@ TECH_STACK = [
     ("scikit-learn", "데이터 분리 · 모델 평가"),
     ("CatBoost · XGBoost · LightGBM", "이탈 예측 모델"),
     ("SHAP", "예측 이유 설명"),
+    ("PostgreSQL · Docker · SQL", "예측 결과 저장 · 대상자 조회"),
     ("Streamlit", "웹 화면"),
     ("DiceBear", "프로필 예시 얼굴"),
 ]

@@ -69,26 +69,123 @@ for _label, _lo, _hi in zip(facts.SEGMENT_AGE_LABELS, facts.SEGMENT_AGE_BINS[:-1
 _STATUS_OPTIONS = {"전체": None, **{kr: raw for raw, kr in STATUS_LABELS.items()}}
 
 
+# A/B 시뮬레이션에서 쓰는 가정값. 자기소개 분량별 관측 이탈률 격차(100자 이하 55.04% vs 초과 24.01%
+# = 31.03%p)의 절반을 '전략 효과'로 가정해요. 상관관계를 그대로 인과 효과로 쓰면 과장이라서요.
+# (이 절반 비율은 데이터로 증명한 값이 아니라 팀이 정한 보수적 가정이에요)
+_AB_OBSERVED_GAP_PP = 31.03
+_AB_ASSUMED_EFFECT = 0.1551
+
+# 배정과 구제 여부를 random() 대신 user_id 해시로 정해요. 그래야 화면을 새로고침해도 결과가 안 바뀌어요.
+# (abs(hashtext(...)) 는 아주 드물게 정수 범위를 넘을 수 있어서 bigint 로 바꿔 계산해요)
+_AB_SIM_SQL = f"""
+WITH high AS (
+    SELECT user_id, churn_actual, churn_prob,
+           CASE WHEN mod(abs(hashtext(user_id::text || 'arm')::bigint), 2) = 0
+                THEN 'treatment' ELSE 'control' END AS arm,
+           mod(abs(hashtext(user_id::text || 'rescue')::bigint), 10000) / 10000.0 AS u
+    FROM predictions
+    WHERE risk_tier = 'High'
+),
+base AS (SELECT AVG(churn_actual) AS churn_rate FROM high WHERE arm = 'control'),
+sim AS (
+    SELECT h.arm, h.churn_prob,
+           CASE WHEN h.arm = 'control' THEN 1 - h.churn_actual
+                WHEN h.churn_actual = 0 THEN 1
+                WHEN h.u < LEAST(1.0, {_AB_ASSUMED_EFFECT} / b.churn_rate) THEN 1
+                ELSE 0 END AS retained
+    FROM high h CROSS JOIN base b
+)
+SELECT arm, COUNT(*) AS n,
+       AVG(churn_prob) AS avg_prob,
+       AVG(retained) AS retained_rate
+FROM sim GROUP BY arm ORDER BY arm
+"""
+
+
+def _dot_grid(stay_rate_pct):
+    """사용자 100명을 점 100개로 그려요. 30일 뒤에도 남은 사람은 진한 분홍, 떠난 사람은 연한 회색.
+    (마크다운이 들여쓰기를 코드 블록으로 읽지 않게 HTML 을 한 줄로 이어 붙여요)"""
+    stay = max(0, min(100, round(stay_rate_pct)))
+    dots = "".join(
+        f'<span style="aspect-ratio:1;border-radius:50%;background:{"#e42560" if i < stay else "#ecdde3"}"></span>'
+        for i in range(100))
+    return (f'<div style="display:grid;grid-template-columns:repeat(10,1fr);gap:6px;'
+            f'max-width:280px">{dots}</div>')
+
+
+def _people_chart(c_ret, t_ret):
+    """'High 위험 사용자 100명이 있다면' 그림: 전략 안 쓴 그룹 vs 쓴 그룹을 나란히 보여줘요."""
+    def side(title, tag_text, ret, tag_color):
+        stay = round(ret)
+        return (f'<div><div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">'
+                f'<b style="font-size:17px;color:#2b2225">{title}</b>'
+                f'<span style="font-size:12px;font-weight:800;color:#fff;background:{tag_color};'
+                f'padding:3px 10px;border-radius:999px">{tag_text}</span></div>'
+                f'<div style="font-size:15px;color:#8b7b81;margin-bottom:12px">'
+                f'남은 사람 <b style="color:#e42560;font-size:22px">{stay}명</b> · 떠난 사람 <b>{100 - stay}명</b></div>'
+                f'{_dot_grid(ret)}</div>')
+    body = (f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:36px">'
+            f'{side("전략 안 쓴 그룹", "실제 과거 기록", c_ret, "#8b7b81")}'
+            f'{side("전략 쓴 그룹", "가정", t_ret, "#e42560")}</div>')
+    legend = ('<div style="margin-top:14px;font-size:14px;color:#8b7b81">'
+              '<span style="color:#e42560">●</span> 30일 뒤에도 앱에 남은 사람 &nbsp;&nbsp;'
+              '<span style="color:#d9c3cb">●</span> 떠난 사람</div>')
+    show('<div class="dash-card"><div class="dash-title">High 위험 사용자 100명이 있다면</div>'
+         '<div class="dash-sub">30일 뒤에 몇 명이 남을까요? 점 하나 = 사용자 1명이에요.</div>'
+         f'{body}{legend}</div>')
+
+
 def _ab_test_section():
-    """맨 아래: 실제 서비스 도입 후 전략 효과를 검증할 A/B 테스트 계획."""
+    """A/B 테스트 운영 시뮬레이션 화면.
+
+    ⚠️ 이 결과는 실제 실험이 아니라 가정 기반 시뮬레이션이에요.
+      - 배정(누가 전략 쓴/안 쓴 그룹인지): 무작위 (가정 없음)
+      - 전략 안 쓴 그룹(대조군): 실제 과거 기록 (개입이 없었으니 진짜 값)
+      - 전략 쓴 그룹(처리군): 가정 (전략을 적용했다면 이탈이 이만큼 줄었을 것이라는 시나리오)
+    카드 3개에 인원·시작 위험도까지 담아서 표는 뺐어요. (같은 숫자가 카드와 표에 두 번 나오던 걸 정리)
+    """
     show(section_title(
-        "전략 효과 A/B 테스트 계획",
-        "SERVICE의 What-if는 모델 예측의 변화를 보여주고, 실제 전략 효과는 운영 데이터로 별도 검증합니다.",
+        "A/B 테스트 운영 시뮬레이션",
+        "High 위험군을 무작위로 반으로 나눠, 한쪽에만 전략을 썼다고 가정하고 30일 뒤 얼마나 남는지 비교해요.",
     ))
-    show(check_list_card(
-        "실제 서비스 도입 후 검증 절차",
-        "임의의 효과 수치를 만들지 않고 실제 행동 로그가 쌓인 뒤 아래 순서로 비교합니다.",
-        [
-            ("1. 대상 선정", "SQL로 동일한 조건의 위험군을 선정합니다. 예: High 위험군 중 자기소개 미작성 사용자"),
-            ("2. 무작위 배정", "대상자를 처리군과 대조군에 무작위로 나누고 두 집단의 시작 위험도가 비슷한지 확인합니다."),
-            ("3. 전략 적용", "처리군에만 프로필 작성 가이드·젤리 보상 등의 전략을 적용하고 대조군은 기존 서비스를 유지합니다."),
-            ("4. 실제 결과 비교", "프로필 수정률, 7일 재방문율, 30일 이탈률을 실제 로그로 비교합니다."),
-        ],
-    ))
-    show(note_box(
-        "현재 OkCupid 데이터에는 캠페인 노출과 개입 이후 행동 로그가 없어 실제 A/B 효과값을 계산할 수 없습니다. "
-        "따라서 이 화면은 결과를 만들어 내는 시뮬레이션이 아니라, 실제 서비스에서 사용할 검증 구조를 설명합니다."
-    ))
+
+    df = db.run_query(_AB_SIM_SQL) if db.is_connected() else None
+    if df is None or len(df) < 2:
+        show(placeholder_card("시뮬레이션 결과", db.NOT_CONNECTED_HINT if not db.is_connected()
+                              else "DB에는 연결됐지만 시뮬레이션을 계산하지 못했어요. predictions 테이블을 확인해 주세요."))
+    else:
+        rows = {r["arm"]: r for _, r in df.iterrows()}
+        ctrl, treat = rows["control"], rows["treatment"]
+        c_ret, t_ret = float(ctrl["retained_rate"]) * 100, float(treat["retained_rate"]) * 100
+
+        k1, k2, k3 = st.columns(3, gap="medium")
+        with k1:
+            show(kpi_card("전략 안 쓴 그룹 · 30일 뒤 남은 비율", f"{c_ret:.1f}%",
+                          f"대조군 {int(ctrl['n']):,}명 · 실제 과거 기록"))
+        with k2:
+            show(kpi_card("전략 쓴 그룹 · 30일 뒤 남은 비율", f"{t_ret:.1f}%",
+                          f"처리군 {int(treat['n']):,}명 · 가정 시나리오"))
+        with k3:
+            show(kpi_card("차이", f"+{t_ret - c_ret:.1f}%p",
+                          f"가정한 효과 약 15.5%p 근처 · 시작 위험도 {float(ctrl['avg_prob']) * 100:.1f}% vs "
+                          f"{float(treat['avg_prob']) * 100:.1f}%로 비슷"))
+        _people_chart(c_ret, t_ret)
+        show(note_box(
+            f"전략 안 쓴 그룹은 실제 과거 결과이고, 전략 쓴 그룹은 관측 이탈률 격차 {_AB_OBSERVED_GAP_PP:.2f}%p의 절반(약 15.5%p)을 "
+            f"효과로 가정한 값이에요. 전략 효과를 증명하는 결과가 아니라, 실제 도입 시 이런 표가 나온다는 시뮬레이션이고 "
+            f"15.5%p도 팀이 정한 보수적 가정값입니다."))
+
+    with st.expander("실제 서비스 도입 후 검증 절차 보기"):
+        show(check_list_card(
+            "실제 서비스 도입 후 검증 절차",
+            "가정값이 아니라 실제 행동 로그가 쌓인 뒤에는 아래 순서로 같은 결과를 채워서 비교합니다.",
+            [
+                ("1. 대상 선정", "SQL로 동일한 조건의 위험군을 선정합니다. 예: High 위험군 중 자기소개 미작성 사용자"),
+                ("2. 무작위 배정", "대상자를 처리군과 대조군에 무작위로 나누고 두 집단의 시작 위험도가 비슷한지 확인합니다."),
+                ("3. 전략 적용", "처리군에만 프로필 작성 가이드·젤리 보상 등의 전략을 적용하고 대조군은 기존 서비스를 유지합니다."),
+                ("4. 실제 결과 비교", "30일 잔존율·30일 이탈률·프로필 수정률·7일 재방문율을 실제 로그로 비교합니다."),
+            ],
+        ))
 
 # 위험 수준별 전략 데이터(LEVELS)는 project_facts.py 로 옮겼어요. (service_view.py 도 같은 걸 써요)
 
@@ -144,16 +241,16 @@ def _render_segment_summary(result, risk_label):
 
 
 def _render_segment_list(result, risk_label):
-    """우선 관리 대상 명단. (전략 카드 아래, 맨 마지막에 놓아요)"""
+    """우선 관리 대상 명단. (위험 순으로 상위 10명만 보여줘요 — 20줄은 화면이 너무 길어져서 줄였어요)"""
     if result["n"] == 0:
         return
     table_rows = [(f"#{uid}", tier, f"{prob * 100:.1f}%", _reason_base_name(reason) or "-",
                   _strategy_for_reason(reason, tier))
-                 for uid, tier, prob, reason in result["rows"]]
+                 for uid, tier, prob, reason in result["rows"][:10]]
     show(table_card(f"우선 관리 대상 (이탈 확률 높은 순 {len(table_rows)}명)",
-                    f"현재 조건의 {risk_label} 사용자 {result['n']:,}명 중 이탈 확률이 가장 높은 사용자예요. 정렬: 이탈 확률 ↓",
+                    f"현재 조건의 {risk_label} 사용자 {result['n']:,}명 중 이탈 확률이 가장 높은 사용자예요.",
                     ["익명 프로필 ID", "위험 등급", "이탈 확률", "주요 위험 신호", "추천 전략"], table_rows))
-    show(note_box(facts.SEGMENT_LIST_DISCLAIMER))
+    show(note_box(f"{facts.SEGMENT_LIST_DISCLAIMER} 예측 신호는 이탈의 '원인'이 아니라 함께 나타나는 '경향'이에요."))
 
 
 def _render_level(level):
@@ -190,14 +287,26 @@ def _render_level(level):
         else:
             _render_segment_summary(result, risk_label)
 
-    # ③ 추천 전략
-    show(section_title("추천 전략"))
-    for icon, title, text in level["actions"]:
-        show(action_card(icon, title, text))
-
-    # ④ 우선 관리 대상 명단
+    # ③ 우선 관리 대상 명단
     if result:
         _render_segment_list(result, risk_label)
+
+    # ④ 이 등급의 추천 전략 전체 (평소엔 접어 두고, 궁금할 때만 펼쳐요)
+    with st.expander(f"{risk_label} 등급 추천 전략 전체 보기"):
+        for icon, title, text in level["actions"]:
+            show(action_card(icon, title, text))
+
+
+def _pick(label, options, key, default_index=0):
+    """하나만 고르는 선택 컨트롤. (옛 Streamlit 버전엔 segmented_control 이 없어서 라디오로 대신해요)
+    st.tabs 는 탭 안의 코드를 전부 실행해서 DB를 여러 번 부르기 때문에, 지금 고른 화면 하나만 그리게 했어요."""
+    seg = getattr(st, "segmented_control", None)
+    if seg is not None:
+        picked = seg(label, options, default=options[default_index], label_visibility="collapsed", key=key)
+    else:
+        picked = st.radio(label, options, index=default_index, horizontal=True,
+                          label_visibility="collapsed", key=key)
+    return picked if picked in options else options[default_index]     # 선택을 풀어서 None 이 돼도 첫 항목으로
 
 
 def render():
@@ -205,30 +314,17 @@ def render():
     show(page_header("RETENTION STRATEGY", "위험 수준별 리텐션 전략",
                      "예측된 이탈 위험에 따라 운영자가 취할 수 있는 조치를 제안합니다."))
 
-    st.caption(db.cache_status_caption())
+    t = facts.RISK_THRESHOLDS
+    st.caption(f"{db.cache_status_caption()}  ·  위험 등급 기준: High {t['high'] * 100:.0f}% 이상 · "
+               f"Medium {t['mid'] * 100:.0f}~{t['high'] * 100:.0f}% · Low {t['mid'] * 100:.0f}% 미만")
 
-    show(note_box("위험 수준(Low / Medium / High)을 나누는 확률 기준은 최종 모델의 결과를 확인한 뒤에 정해요. "
-                  "SERVICE 화면에서 예측한 위험 수준을 아래에서 골라서 보세요."))
+    # 한 화면에 다 보여주면 너무 길어서, 두 화면으로 나눴어요.
+    view = _pick("화면", ["대상자 · 전략", "A/B 시뮬레이션"], key="retention_view")
+    if view == "A/B 시뮬레이션":
+        _ab_test_section()
+        return
 
-    # ⚠️ st.tabs 대신 하나만 고르는 선택 컨트롤을 써요. st.tabs 는 '보이는 탭만' 계산하는 게
-    # 아니라, with tab: 안의 코드를 탭마다 전부 실행해요. High 탭만 보고 있어도 실제로는
-    # High·Medium·Low 세 번 다 db.query_segment() 가 실행되는 걸 직접 확인했어요. 이러면
-    # 필터 하나만 바꿔도 DB에 세 번 쏘는 셈이라, 지금 고른 등급 하나만 그리게 바꿨어요.
-    _segmented = getattr(st, "segmented_control", None)
-    if _segmented is not None:
-        selected_tab = _segmented("위험 수준", [level["tab"] for level in facts.LEVELS],
-                                  default=facts.LEVELS[0]["tab"], label_visibility="collapsed",
-                                  key="retention_level_select")
-    else:      # 옛 Streamlit 버전엔 segmented_control 이 없어서, 라디오로 대신해요
-        selected_tab = st.radio("위험 수준", [level["tab"] for level in facts.LEVELS],
-                                horizontal=True, label_visibility="collapsed",
-                                key="retention_level_select")
+    tabs = [level["tab"] for level in facts.LEVELS]
+    selected_tab = _pick("위험 수준", tabs, key="retention_level_select")
     level = next((lv for lv in facts.LEVELS if lv["tab"] == selected_tab), facts.LEVELS[0])
     _render_level(level)
-
-    # 운영할 때 주의할 점
-    show(note_box("예측 신호는 이탈의 '원인'이 아니라 함께 나타나는 '경향'이에요. "
-                  "그래서 전략은 일부 사용자에게 먼저 시험(A/B 테스트)해서 효과를 확인한 뒤 넓혀 가는 것을 권장해요."))
-
-    # 실제 서비스 도입 후 A/B 테스트 검증 계획
-    _ab_test_section()
