@@ -73,9 +73,9 @@ def _tab_data():
             f"기준 시각: {facts.REFERENCE_TIME} (데이터 안에서 가장 최근 접속 시각)",
             f"이탈(1): 기준 시각보다 {facts.CHURN_DAYS}일 이상 이전에 마지막으로 접속한 사용자",
             f"유지(0): 최근 {facts.CHURN_DAYS}일 안에 접속한 사용자",
-            "왜 30일일까요? 7일·14일은 잠깐 쉬는 사용자까지 이탈로 보게 되고, "
-            "90일·180일은 이탈자가 너무 적어 모델이 배우기 어려워요. 30일은 데이팅 앱의 일반적인 "
-            "재방문 주기를 넘기면서 이탈 비율(약 1 : 2.9)도 학습하기 좋은 수준이에요.",
+            "왜 30일일까요? 7일·14일은 이탈 비율이 40.5%·32.7%로 높아서 잠깐 쉬는 사용자까지 이탈로 보게 되고, "
+            "90일·180일은 이탈자가 15.4%·8.0%로 줄어 모델이 배울 사례가 희소해져요. "
+            "클래스 균형과 해석 가능성을 함께 보고 30일로 정했어요.",
         ]))
     with right:
         # 기준 일수별 이탈률. 30일만 진하게 칠해서 '우리가 고른 기준'을 보여줘요.
@@ -109,20 +109,22 @@ def _tab_data():
 def _tab_model():
     """탭 3: 모델 비교와 성적"""
     show(text_card(f"현재 채택 후보: {facts.MODEL_NAME}", [
-        f"같은 {facts.FEATURE_COUNT}개 항목으로 6개 모델을 비교했고, 그중 {facts.MODEL_NAME} 의 성능이 가장 좋았어요. "
-        "글자로 된 항목과 빈칸을 그대로 다룰 수 있고, SHAP 으로 예측 이유를 설명할 수 있다는 점도 선택 이유예요.",
+        f"같은 조건(당시 25개 항목, 분류 기준 확률 0.5)으로 6개 모델을 비교했어요. {facts.MODEL_NAME} 가 "
+        "ROC-AUC·F1이 가장 높았지만 XGBoost·LightGBM과 차이는 작았어요.",
+        "글자로 된 항목과 빈칸을 그대로 다룰 수 있고, SHAP 으로 예측 이유를 설명할 수 있다는 점도 선택 이유예요. "
+        "이후 중복 항목을 정리해 20개로 줄였고, 성능은 거의 그대로였어요(ROC-AUC 0.7367 → 0.7366).",
     ]))
 
     # 모델 비교 표 (CatBoost 줄 강조)
     rows = [(name, f"{auc:.3f}", f"{rec:.3f}", f"{pre:.3f}", f"{f1:.3f}")
             for name, auc, rec, pre, f1 in facts.MODEL_COMPARISON]
-    show(table_card("모델 비교", "분류 기준 확률은 모두 0.5예요. 숫자가 클수록 좋아요.",
+    show(table_card("모델 비교", "당시 25개 항목으로 비교했고, 분류 기준 확률은 모두 0.5예요. 숫자가 클수록 좋아요.",
                     ["모델", "ROC-AUC", "Recall", "Precision", "F1"], rows,
                     highlight_row=facts.SELECTED_MODEL_ROW))
 
     # 채택 후보의 상세 성적 (숫자 카드 3개 + 3개)
     m = facts.MODEL_METRICS
-    show(section_title(f"{facts.MODEL_NAME} 상세 성적"))
+    show(section_title(f"{facts.MODEL_NAME} 상세 성적", "최종 20개 항목 모델을 평가 데이터(14,987명)로 확인한 결과예요."))
     r1 = st.columns(3, gap="medium")
     for col, (label, sub) in zip(r1, [("ROC-AUC", "이탈/유지를 구분하는 전반적인 능력"),
                                       ("Recall", "실제 이탈자 중 찾아낸 비율"),
@@ -140,7 +142,8 @@ def _tab_model():
                   "이탈로 예측한 사람 중 절반 이상은 사실 이탈하지 않아요(오탐). 이탈자가 전체의 25.7% 로 적은 데이터라 "
                   "Accuracy 보다 Recall · PR-AUC 를 중심으로 봤어요."))
     show(note_box(f"5-Fold 교차검증 평균 ROC-AUC 는 {facts.CV_ROC_AUC:.3f}, PR-AUC 는 {facts.CV_PR_AUC:.3f} 예요. {facts.MODEL_CAVEAT}"))
-    show(note_box(facts.PROBABILITY_CALIBRATION_NOTE))
+    with st.expander("예측 확률이 실제보다 높게 나오는 이유"):
+        show(note_box(facts.PROBABILITY_CALIBRATION_NOTE))
 
 def _tab_limits():
     """탭 4: 한계와 앞으로의 방향"""

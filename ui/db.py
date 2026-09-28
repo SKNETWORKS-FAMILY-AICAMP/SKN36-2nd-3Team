@@ -52,7 +52,7 @@ def cache_status_caption() -> str:
     if not is_connected():
         return "⚪ DB 연결 안 됨"
     if _last_fetch_at is None:
-        return "🟢 DB 연결됨 · 아직 조회 전"
+        return "🟢 DB 연결됨"
     return f"🟢 DB 연결됨 · 최근 갱신 {_last_fetch_at.strftime('%H:%M:%S')} (최대 60초 정도 이전 값일 수 있어요)"
 
 # DB 연결이 안 됐을 때 화면에 보여줄 안내 문구. RETENTION 의 두 섹션(A/B 테스트, SQL 타겟팅)이

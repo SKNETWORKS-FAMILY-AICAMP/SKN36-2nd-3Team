@@ -392,7 +392,11 @@ def _inject_dialog_styles():
     """결과 팝업만 홈 화면과 어울리는 간결한 카드 디자인으로 다듬는다."""
     st.markdown("""
     <style>
-    div[data-testid="stDialog"] div[role="dialog"] {
+    div[data-testid="stDialog"] > div,
+    div[data-testid="stDialog"] [role="dialog"] {
+        width: min(1040px, 94vw) !important; max-width: min(1040px, 94vw) !important;
+    }
+    div[data-testid="stDialog"] [role="dialog"] {
         border-radius: 28px;
         border: 1px solid rgba(228, 37, 96, .12);
         box-shadow: 0 28px 80px rgba(83, 27, 48, .20);
@@ -409,27 +413,27 @@ def _inject_dialog_styles():
         background: radial-gradient(circle at 94% 0%, #ffe3ec 0, transparent 34%), #fff;
     }
     div[data-testid="stDialog"] .result-kicker {
-        color: #e42560; font-size: 11px; font-weight: 800; letter-spacing: .13em;
+        color: #e42560; font-size: 13px; font-weight: 800; letter-spacing: .13em;
         margin-bottom: 4px;
     }
     div[data-testid="stDialog"] .result-title {
-        font-size: 21px; font-weight: 800; color: #241b1e; margin-bottom: 16px;
+        font-size: 23px; font-weight: 800; color: #241b1e; margin-bottom: 16px;
     }
     div[data-testid="stDialog"] .preview-ribbon {
         top: 20px; right: 22px; border: 0; background: #fff0f5; color: #d61f57;
     }
     div[data-testid="stDialog"] .result-hero-grid {
-        display: grid; grid-template-columns: 190px 1fr; gap: 24px; align-items: center;
+        display: grid; grid-template-columns: 220px 1fr; gap: 24px; align-items: center;
         padding: 4px 0 20px;
     }
-    div[data-testid="stDialog"] .hero-score strong { font-size: 52px; line-height: 1; letter-spacing: -.05em; }
-    div[data-testid="stDialog"] .hero-score > span { font-size: 25px; font-weight: 800; }
+    div[data-testid="stDialog"] .hero-score strong { font-size: 54px; line-height: 1; letter-spacing: -.05em; }
+    div[data-testid="stDialog"] .hero-score > span { font-size: 27px; font-weight: 800; }
     div[data-testid="stDialog"] .hero-score small { display: block; margin-top: 8px; color: #786970; font-weight: 700; }
     div[data-testid="stDialog"] .hero-summary { border-left: 1px solid #f0dfe5; padding-left: 24px; }
     div[data-testid="stDialog"] .hero-summary p { margin: 12px 0 5px; color: #41363a; line-height: 1.55; }
     div[data-testid="stDialog"] .hero-summary small { color: #8d7c83; }
     div[data-testid="stDialog"] .level-pill {
-        display: inline-flex; padding: 6px 11px; border-radius: 999px; font-size: 11px; font-weight: 900;
+        display: inline-flex; padding: 6px 11px; border-radius: 999px; font-size: 13px; font-weight: 900;
         letter-spacing: .08em;
     }
     div[data-testid="stDialog"] .level-pill.high { color:#c91852; background:#ffe4ed; }
@@ -437,41 +441,41 @@ def _inject_dialog_styles():
     div[data-testid="stDialog"] .level-pill.low { color:#247146; background:#e8f7ee; }
     div[data-testid="stDialog"] .risk-scale { margin: 0; gap: 7px; }
     div[data-testid="stDialog"] .risk-seg { height: 9px; font-size: 0; border-radius: 999px; }
-    div[data-testid="stDialog"] .result-note { margin-top: 9px; text-align: right; font-size: 11px; color:#9a8b91; }
+    div[data-testid="stDialog"] .result-note { margin-top: 9px; text-align: right; font-size: 15px; color:#9a8b91; }
     div[data-testid="stDialog"] .compact-card { min-height: 100%; padding: 22px; }
-    div[data-testid="stDialog"] .dash-sub { margin: -8px 0 14px !important; color:#8d7c83; font-size:12px; }
+    div[data-testid="stDialog"] .dash-sub { margin: -8px 0 14px !important; color:#8d7c83; font-size:16px; }
     div[data-testid="stDialog"] .sig-row {
-        display:grid; grid-template-columns: 28px 28px 1fr; gap:8px; align-items:center;
-        padding: 12px 0; margin:0; border-radius:0; background:transparent !important;
+        display:grid; grid-template-columns: 32px 32px 1fr; gap:8px; align-items:center;
+        padding: 15px 0; margin:0; border-radius:0; background:transparent !important;
         border-bottom:1px solid #f3e8eb;
     }
     div[data-testid="stDialog"] .sig-row:last-child { border-bottom:0; }
-    div[data-testid="stDialog"] .signal-rank { color:#c8b7bd; font-size:11px; font-weight:800; }
+    div[data-testid="stDialog"] .signal-rank { color:#c8b7bd; font-size:15px; font-weight:800; }
     div[data-testid="stDialog"] .sig-icon {
-        width:24px; height:24px; display:grid; place-items:center; border-radius:8px;
-        font-size:14px; font-weight:900;
+        width:28px; height:28px; display:grid; place-items:center; border-radius:8px;
+        font-size:17px; font-weight:900;
     }
     div[data-testid="stDialog"] .sig-row.warn .sig-icon { color:#d81f58; background:#ffe7ef; }
     div[data-testid="stDialog"] .sig-row.ok .sig-icon { color:#26784a; background:#e8f7ee; }
-    div[data-testid="stDialog"] .sig-title { font-size:14px; color:#2e2528; }
-    div[data-testid="stDialog"] .sig-stat { margin-top:2px; font-size:11px; color:#8b7b81; }
+    div[data-testid="stDialog"] .sig-title { font-size:17px; color:#2e2528; }
+    div[data-testid="stDialog"] .sig-stat { margin-top:2px; font-size:15px; color:#8b7b81; }
     div[data-testid="stDialog"] .action-row {
-        display:grid; grid-template-columns:28px 1fr; gap:10px; padding:12px 0;
+        display:grid; grid-template-columns:34px 1fr; gap:10px; padding:15px 0;
         border-bottom:1px solid #f3e8eb;
     }
     div[data-testid="stDialog"] .action-row:last-child { border-bottom:0; }
     div[data-testid="stDialog"] .action-index {
-        color:#c8b7bd; font-size:11px; font-weight:800; padding-top:3px;
+        color:#c8b7bd; font-size:15px; font-weight:800; padding-top:3px;
     }
     div[data-testid="stDialog"] .action-source {
-        color:#d9255e; font-size:10px; font-weight:800; letter-spacing:.02em; margin-bottom:3px;
+        color:#d9255e; font-size:14px; font-weight:800; letter-spacing:.02em; margin-bottom:3px;
     }
     div[data-testid="stDialog"] .action-source span { color:#c5aeb6; padding-left:3px; }
     div[data-testid="stDialog"] .action-name {
-        color:#2b2225; font-size:14px; font-weight:800; margin-bottom:3px;
+        color:#2b2225; font-size:17px; font-weight:800; margin-bottom:3px;
     }
     div[data-testid="stDialog"] .action-desc {
-        color:#8b7b81; font-size:11px; line-height:1.5;
+        color:#8b7b81; font-size:15px; line-height:1.5;
     }
     div[data-testid="stDialog"] .scenario-result {
         margin-top:18px; padding:22px; border:1px solid #efdfe5; border-radius:22px;
@@ -479,7 +483,7 @@ def _inject_dialog_styles():
         box-shadow:0 10px 28px rgba(80,36,52,.06);
     }
     div[data-testid="stDialog"] .scenario-eyebrow {
-        color:#df225b; font-size:10px; font-weight:900; letter-spacing:.14em; margin-bottom:13px;
+        color:#df225b; font-size:14px; font-weight:900; letter-spacing:.14em; margin-bottom:13px;
     }
     div[data-testid="stDialog"] .scenario-grid {
         display:grid; grid-template-columns:1fr 54px 1fr; gap:14px; align-items:stretch;
@@ -490,34 +494,34 @@ def _inject_dialog_styles():
     div[data-testid="stDialog"] .scenario-side.after {
         background:#f1faf4; border-color:#dcefe2;
     }
-    div[data-testid="stDialog"] .scenario-label { color:#8a7980; font-size:12px; font-weight:700; }
+    div[data-testid="stDialog"] .scenario-label { color:#8a7980; font-size:16px; font-weight:700; }
     div[data-testid="stDialog"] .scenario-number {
-        margin:7px 0 8px; color:#33292d; font-size:38px; line-height:1; font-weight:900; letter-spacing:-.04em;
+        margin:7px 0 8px; color:#33292d; font-size:40px; line-height:1; font-weight:900; letter-spacing:-.04em;
     }
     div[data-testid="stDialog"] .scenario-side.after .scenario-number { color:#247449; }
     div[data-testid="stDialog"] .scenario-tier {
         display:inline-flex; padding:5px 9px; border-radius:999px; background:#fff;
-        color:#6f6066; font-size:10px; font-weight:900; letter-spacing:.06em;
+        color:#6f6066; font-size:14px; font-weight:900; letter-spacing:.06em;
     }
     div[data-testid="stDialog"] .scenario-arrow {
         display:flex; flex-direction:column; align-items:center; justify-content:center; color:#d8235b;
-        font-size:24px; font-weight:900;
+        font-size:26px; font-weight:900;
     }
     div[data-testid="stDialog"] .scenario-arrow small {
         margin-top:6px; padding:5px 8px; border-radius:999px; background:#e8f7ed;
-        color:#28774a; font-size:10px; white-space:nowrap;
+        color:#28774a; font-size:14px; white-space:nowrap;
     }
     div[data-testid="stDialog"] .change-chips { display:flex; flex-wrap:wrap; gap:7px; margin-top:16px; }
     div[data-testid="stDialog"] .change-chip {
         padding:7px 10px; border-radius:10px; background:#fff0f5; color:#b91d4d;
-        font-size:11px; font-weight:750;
+        font-size:15px; font-weight:750;
     }
     div[data-testid="stDialog"] .scenario-summary {
-        margin-top:14px; color:#392f33; font-size:14px; font-weight:750; line-height:1.55;
+        margin-top:14px; color:#392f33; font-size:17px; font-weight:750; line-height:1.55;
     }
     div[data-testid="stDialog"] .scenario-caution {
         margin-top:12px; padding:11px 13px; border-radius:12px; background:#fff8e8;
-        color:#80601e; font-size:11px; line-height:1.55;
+        color:#80601e; font-size:15px; line-height:1.55;
     }
     div[data-testid="stDialog"] .hero-compare {
         display:grid; grid-template-columns:1fr 150px 1fr; gap:18px; align-items:center;
@@ -529,26 +533,45 @@ def _inject_dialog_styles():
     div[data-testid="stDialog"] .compare-value.after { background:#f1faf4; border-color:#dcefe2; }
     div[data-testid="stDialog"] .compare-value small { display:block; color:#8d7d83; font-weight:750; }
     div[data-testid="stDialog"] .compare-value strong {
-        display:block; margin:5px 0 8px; color:#382d31; font-size:42px; line-height:1; letter-spacing:-.05em;
+        display:block; margin:5px 0 8px; color:#382d31; font-size:44px; line-height:1; letter-spacing:-.05em;
     }
     div[data-testid="stDialog"] .compare-value.after strong { color:#257548; }
     div[data-testid="stDialog"] .compare-value span {
         display:inline-flex; padding:5px 8px; border-radius:999px; background:#fff;
-        color:#74646b; font-size:10px; font-weight:900; letter-spacing:.05em;
+        color:#74646b; font-size:14px; font-weight:900; letter-spacing:.05em;
     }
     div[data-testid="stDialog"] .compare-arrow { text-align:center; }
-    div[data-testid="stDialog"] .compare-arrow b { display:block; color:#dd255c; font-size:30px; line-height:1; }
+    div[data-testid="stDialog"] .compare-arrow b { display:block; color:#dd255c; font-size:32px; line-height:1; }
     div[data-testid="stDialog"] .compare-arrow span {
         display:inline-flex; margin-top:9px; padding:6px 10px; border-radius:999px;
-        font-size:11px; font-weight:850; white-space:nowrap;
+        font-size:15px; font-weight:850; white-space:nowrap;
     }
     div[data-testid="stDialog"] .compare-arrow.down span { color:#24764a; background:#e7f7ed; }
     div[data-testid="stDialog"] .compare-arrow.up span { color:#c81e55; background:#ffe8ef; }
     div[data-testid="stDialog"] .compare-arrow.same span { color:#75656b; background:#f2edef; }
     div[data-testid="stDialog"] .hero-model-note {
         margin-top:11px; padding:10px 12px; border-radius:11px; background:#fff8e8;
-        color:#80601e; font-size:11px; line-height:1.5;
+        color:#80601e; font-size:15px; line-height:1.5;
     }
+    div[data-testid="stDialog"] .hero-summary p { font-size: 18px; }
+    div[data-testid="stDialog"] .hero-summary small { font-size: 16px; }
+    div[data-testid="stDialog"] .hero-score small { font-size: 17px; }
+    div[data-testid="stDialog"] .compare-value small { font-size: 16px; }
+    div[data-testid="stDialog"] .action-desc, div[data-testid="stDialog"] .sig-stat { line-height: 1.55; }
+    div[data-testid="stDialog"] [data-testid="stCaptionContainer"], div[data-testid="stDialog"] [data-testid="stCaptionContainer"] p { font-size: 16px !important; }
+    /* 팝업 아래쪽 "프로필을 바꾸면 예측도 달라질까요?" 영역 (Streamlit 기본 위젯) */
+    div[data-testid="stDialog"] h4 { font-size: 23px !important; }
+    div[data-testid="stDialog"] h5 { font-size: 19px !important; }
+    div[data-testid="stDialog"] button p { font-size: 17px !important; font-weight: 700 !important; }
+    div[data-testid="stDialog"] .stButton button { min-height: 3.6rem; }
+    div[data-testid="stDialog"] [data-testid="stWidgetLabel"] p { font-size: 17px !important; }
+    div[data-testid="stDialog"] [data-testid="stMultiSelect"] input,
+    div[data-testid="stDialog"] [data-testid="stMultiSelect"] input::placeholder,
+    div[data-testid="stDialog"] [data-testid="stMultiSelect"] span,
+    div[data-testid="stDialog"] [data-testid="stSelectbox"] input,
+    div[data-testid="stDialog"] [data-testid="stSelectbox"] input::placeholder,
+    div[data-testid="stDialog"] [data-testid="stSelectbox"] [data-baseweb="select"] div { font-size: 16px !important; }
+    div[data-testid="stDialog"] [data-testid="stMultiSelectTagsContainer"] { min-height: 3rem; }
     div[data-testid="stDialog"] hr { border-color:#f2e2e7; margin: 16px 0 20px; }
     @media (max-width: 760px) {
         div[data-testid="stDialog"] .result-hero-grid { grid-template-columns: 1fr; gap:14px; }
@@ -582,7 +605,7 @@ def _render_result_dialog(info, current_inputs, current_prediction, model):
 
     intro_col, close_col = st.columns([8, 1])
     with intro_col:
-        st.markdown("<div style='color:#8d7c83;font-size:13px;margin:2px 0 16px'>"
+        st.markdown("<div style='color:#8d7c83;font-size:15px;margin:2px 0 16px'>"
                     "입력한 프로필을 바탕으로 이탈 위험과 우선 대응 전략을 정리했습니다.</div>",
                     unsafe_allow_html=True)
     with close_col:

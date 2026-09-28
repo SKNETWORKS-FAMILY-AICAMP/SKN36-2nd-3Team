@@ -55,13 +55,16 @@ def _summary_items():
 # ---------------------------------------------------------
 # 탭 1: 핵심 신호
 # ---------------------------------------------------------
-def _tab_signals():
+def _tab_signals(note):
     show(section_title("핵심 신호 한눈에",
                        "이탈이 많은 쪽과 적은 쪽의 이탈률을 비교했어요. 오른쪽 위 숫자는 몇 배 차이인지를 뜻해요."))
     left, right = st.columns(2, gap="large")
     for i, s in enumerate(facts.KEY_SIGNALS):
         with (left if i % 2 == 0 else right):        # 왼쪽/오른쪽 칸에 번갈아 놓기
             show(signal_card(s["title"], s["high_label"], s["high_rate"], s["low_label"], s["low_rate"]))
+    if len(facts.KEY_SIGNALS) % 2 == 1:              # 카드가 홀수면 비는 칸에 읽을 때 주의할 점을 넣어요
+        with right:
+            show(note_box(note))
 
 
 # ---------------------------------------------------------
@@ -163,8 +166,10 @@ def _tab_model_groups(churn_rate):
                 for _, row in risk_df.iterrows()
             ]
 
+            order = {"High": 0, "Medium": 1, "Low": 2}
+            risk_rows.sort(key=lambda r: order.get(r["label"], 9))
             show(rate_bars_card(
-                "전체 위험군 분포 (Low / Medium / High)",
+                "전체 위험군 분포 (High / Medium / Low)",
                 "전체 예측 사용자 중 각 위험 등급이 차지하는 비율입니다.",
                 risk_rows,
                 hot_labels=["High"],
@@ -267,55 +272,48 @@ def _overview_stats():
 _SOURCE_LABELS = {"db": "predictions 테이블(DB)", "csv": "data 폴더 파일", "fixed": "문서에 적힌 고정값"}
 
 
-def render():
-    # ── 1) 화면 제목 ─────────────────────────────────────
-    show(page_header("USER INSIGHT", "이탈 위험 사용자 분석",
-                     "프로필 정보와 장기 미접속(이탈)의 관계를 한눈에 확인하는 관리자용 대시보드입니다."))
+def _pick(label, options, key):
+    """하나만 고르는 선택 컨트롤. st.tabs 는 모든 탭의 코드를 한꺼번에 실행해서 DB를 여러 번 부르기 때문에,
+    고른 화면 하나만 그리게 바꿨어요. (RETENTION 과 같은 방식)"""
+    seg = getattr(st, "segmented_control", None)
+    if seg is not None:
+        picked = seg(label, options, default=options[0], label_visibility="collapsed", key=key)
+    else:
+        picked = st.radio(label, options, horizontal=True, label_visibility="collapsed", key=key)
+    return picked if picked in options else options[0]
 
-    # 탭 4의 위험군 분포·그룹별 이탈률은 DB에서 가져오는데, 60초 캐시가 걸려 있어서 방금
-    # SERVICE에서 새로 예측해도 여기 숫자는 최대 60초 정도 늦게 반영될 수 있어요. 그 사실을
-    # 작게 알려줘요. (db.py 의 cache_status_caption() 이 연결 여부까지 같이 알려줘요)
-    st.caption(db.cache_status_caption())
 
-    # ── 2) 핵심 발견 3가지 (맨 위 요약) ──────────────────
-    show(takeaway_band("핵심 발견 3가지", _summary_items()))
-
-    # 맨 위 숫자와 탭4가 같은 우선순위(DB → 로컬 CSV → 고정값)로 값을 찾게 통일했어요.
-    users, churn_rate, source = _overview_stats()
-
-    # ── 3) 핵심 숫자 4개 ────────────────────────────────
-    # st.columns(4) : 화면을 같은 너비 4칸으로 나눔
-    k1, k2, k3, k4 = st.columns(4, gap="medium")
-    with k1:
-        show(kpi_card("분석 사용자", f"{users:,}명", f"{facts.DATASET_NAME} 프로필 · {_SOURCE_LABELS[source]}"))
-    with k2:
-        show(kpi_card("이탈률", f"{churn_rate:.1f}%", f"마지막 접속 후 {facts.CHURN_DAYS}일 이상 미접속"))
-    with k3:
-        show(kpi_card("이탈 기준", f"{facts.CHURN_DAYS}일", "데이터 안에서 가장 최근 접속 시각이 기준"))
-    with k4:
-        show(kpi_card("사용 항목", f"{facts.FEATURE_COUNT}개", "프로필 + 자기소개에서 만든 feature"))
-
-    # ── 4) 탭 4개 ───────────────────────────────────────
-    # st.tabs : 탭(상단 메뉴)으로 내용을 나눠서 보여줍니다. 한 화면에 다 쌓으면 너무 길어서 나눴어요.
-    t1, t2, t3, t4 = st.tabs(["핵심 신호", "자기소개 · 프로필", "가상 사용자 유형", "모델 · 그룹별 분석"])
-    with t1:
-        _tab_signals()
-    with t2:
-        _tab_essay()
-    with t3:
-        _tab_personas()
-    with t4:
-        _tab_model_groups(churn_rate)
-
-    # ── 5) 읽을 때 주의할 점 (탭 밖, 항상 보임) ──────────────
+def _scope_note(source):
+    """읽을 때 주의할 점 (핵심 신호 탭의 빈칸에 한 번만 보여줘요)"""
     note = ("지역별 분석은 뺐어요. 사용자의 99.8%가 캘리포니아라서 지역 간 비교가 의미 없기 때문이에요. "
             "또 이 화면의 차이는 '함께 나타나는 경향'이지 이탈의 원인이 아니에요.")
-    # ⚠️ 예전엔 여기서 무조건 "data 폴더 파일로 계산했다"고 했는데, 탭4는 이미 DB 전용이라 그
-    # 문구가 실제와 안 맞았어요. 지금 진짜 상태를 그대로 알려줘요: DB가 연결됐을 때만 위 숫자와
-    # 탭4가 같은 곳(DB)을 보고, DB가 없으면 위 숫자는 대신값을 쓰고 탭4는 비어 있어요.
     if source == "db":
-        note += " 위 숫자와 아래 '모델 · 그룹별 분석' 탭은 모두 DB(predictions 테이블)에서 계산한 값이에요."
+        note += " '모델 · 그룹별 분석'의 숫자는 DB(predictions 테이블)에서 계산한 값이에요."
     else:
         note += (f" 위 숫자는 {_SOURCE_LABELS[source]}을 대신 보여준 값이에요. "
-                 "아래 '모델 · 그룹별 분석' 탭은 DB에 연결해야 값이 나와요.")
-    show(note_box(note))
+                 "'모델 · 그룹별 분석'은 DB에 연결해야 값이 나와요.")
+    return note
+
+
+def render():
+    show(page_header("USER INSIGHT", "이탈 위험 사용자 분석",
+                     "프로필 정보와 장기 미접속(이탈)의 관계를 한눈에 확인하는 관리자용 대시보드입니다."))
+    st.caption(db.cache_status_caption())
+
+    users, churn_rate, source = _overview_stats()
+    # 전에는 '핵심 발견 3가지' + 숫자 카드 4개가 탭마다 반복돼서 실제 내용까지 스크롤이 길었어요.
+    # 이제 숫자는 한 줄로 줄이고, '핵심 발견 3가지'는 첫 화면(핵심 신호)에서만 보여줘요.
+    st.caption(f"분석 사용자 {users:,}명 · 이탈률 {churn_rate:.1f}% · 이탈 기준 {facts.CHURN_DAYS}일(마지막 접속 후 미접속) · "
+               f"사용 항목 {facts.FEATURE_COUNT}개 · 출처 {_SOURCE_LABELS[source]}")
+
+    view = _pick("화면", ["핵심 신호", "자기소개 · 프로필", "가상 사용자 유형", "모델 · 그룹별 분석"],
+                 key="insight_view")
+    if view == "핵심 신호":
+        show(takeaway_band("핵심 발견 3가지 (학습용 데이터 기준)", _summary_items()))
+        _tab_signals(_scope_note(source))
+    elif view == "자기소개 · 프로필":
+        _tab_essay()
+    elif view == "가상 사용자 유형":
+        _tab_personas()
+    else:
+        _tab_model_groups(churn_rate)
