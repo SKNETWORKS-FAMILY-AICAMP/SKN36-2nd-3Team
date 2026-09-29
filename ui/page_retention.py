@@ -73,11 +73,27 @@ _STATUS_OPTIONS = {"전체": None, **{kr: raw for raw, kr in STATUS_LABELS.items
 # = 31.03%p)의 절반을 '전략 효과'로 가정해요. 상관관계를 그대로 인과 효과로 쓰면 과장이라서요.
 # (이 절반 비율은 데이터로 증명한 값이 아니라 팀이 정한 보수적 가정이에요)
 _AB_OBSERVED_GAP_PP = 31.03
-_AB_ASSUMED_EFFECT = 0.1551
+
+# A/B 시뮬레이션의 '전략 쓴 그룹' 효과 가정. 두 가지를 버튼으로 바꿔 볼 수 있어요. (둘 다 실제 효과가 아니라 가정값)
+#  · 낙관: 자기소개 분량별 관측 이탈률 격차(31.03%p)의 절반. 상관관계를 그대로 인과 효과로 쓰면 과장이라 절반만 반영
+#  · 보수: 팀 검정력 분석(약 1,839명 표본)에서 80% 넘는 확률로 발견 가능한 최소 효과 크기. '예상 효과'가 아니라 '검증 가능한 최소 크기'
+_AB_SCENARIOS = {
+    "낙관 시나리오 · 15.5%p": {
+        "effect": 0.1551, "label": "15.5%p",
+        "basis": (f"관측 이탈률 격차 {_AB_OBSERVED_GAP_PP:.2f}%p의 절반(약 15.5%p)을 전략 효과로 가정한 값이에요. "
+                  "관찰된 차이는 상관관계라서 전부 효과로 보면 과장이 되기 때문에 절반만 반영했어요."),
+    },
+    "보수 시나리오 · 7%p": {
+        "effect": 0.07, "label": "7%p",
+        "basis": ("팀의 검정력 분석에서 '현재 표본(약 1,839명)으로 80% 넘는 확률로 발견할 수 있는 최소 효과 크기'인 "
+                  "7%p를 가정한 값이에요. 7%p는 예상되는 효과가 아니라, 실험으로 확인할 수 있는 최소 크기예요."),
+    },
+}
 
 # 배정과 구제 여부를 random() 대신 user_id 해시로 정해요. 그래야 화면을 새로고침해도 결과가 안 바뀌어요.
 # (abs(hashtext(...)) 는 아주 드물게 정수 범위를 넘을 수 있어서 bigint 로 바꿔 계산해요)
-_AB_SIM_SQL = f"""
+def _ab_sim_sql(effect):
+    return f"""
 WITH high AS (
     SELECT user_id, churn_actual, churn_prob,
            CASE WHEN mod(abs(hashtext(user_id::text || 'arm')::bigint), 2) = 0
@@ -91,7 +107,7 @@ sim AS (
     SELECT h.arm, h.churn_prob,
            CASE WHEN h.arm = 'control' THEN 1 - h.churn_actual
                 WHEN h.churn_actual = 0 THEN 1
-                WHEN h.u < LEAST(1.0, {_AB_ASSUMED_EFFECT} / b.churn_rate) THEN 1
+                WHEN h.u < LEAST(1.0, {effect} / b.churn_rate) THEN 1
                 ELSE 0 END AS retained
     FROM high h CROSS JOIN base b
 )
@@ -149,7 +165,11 @@ def _ab_test_section():
         "High 위험군을 무작위로 반으로 나눠, 한쪽에만 전략을 썼다고 가정하고 30일 뒤 얼마나 남는지 비교해요.",
     ))
 
-    df = db.run_query(_AB_SIM_SQL) if db.is_connected() else None
+    scenario_name = _pick("시나리오", list(_AB_SCENARIOS), key="ab_scenario")
+    scenario = _AB_SCENARIOS[scenario_name]
+    st.caption("전략 쓴 그룹의 효과를 어떻게 가정하느냐에 따라 결과가 달라져요. 두 가지를 바꿔 가며 비교해 보세요.")
+
+    df = db.run_query(_ab_sim_sql(scenario["effect"])) if db.is_connected() else None
     if df is None or len(df) < 2:
         show(placeholder_card("시뮬레이션 결과", db.NOT_CONNECTED_HINT if not db.is_connected()
                               else "DB에는 연결됐지만 시뮬레이션을 계산하지 못했어요. predictions 테이블을 확인해 주세요."))
@@ -167,13 +187,12 @@ def _ab_test_section():
                           f"처리군 {int(treat['n']):,}명 · 가정 시나리오"))
         with k3:
             show(kpi_card("차이", f"+{t_ret - c_ret:.1f}%p",
-                          f"가정한 효과 약 15.5%p 근처 · 시작 위험도 {float(ctrl['avg_prob']) * 100:.1f}% vs "
+                          f"가정한 효과 약 {scenario['label']} 근처 · 시작 위험도 {float(ctrl['avg_prob']) * 100:.1f}% vs "
                           f"{float(treat['avg_prob']) * 100:.1f}%로 비슷"))
         _people_chart(c_ret, t_ret)
         show(note_box(
-            f"전략 안 쓴 그룹은 실제 과거 결과이고, 전략 쓴 그룹은 관측 이탈률 격차 {_AB_OBSERVED_GAP_PP:.2f}%p의 절반(약 15.5%p)을 "
-            f"효과로 가정한 값이에요. 전략 효과를 증명하는 결과가 아니라, 실제 도입 시 이런 표가 나온다는 시뮬레이션이고 "
-            f"15.5%p도 팀이 정한 보수적 가정값입니다."))
+            f"전략 안 쓴 그룹은 실제 과거 결과이고, 전략 쓴 그룹은 {scenario['basis']} "
+            f"두 시나리오 모두 전략 효과를 증명하는 결과가 아니라, 실제 도입 시 이런 결과 화면이 나온다는 시뮬레이션이에요."))
 
     with st.expander("실제 서비스 도입 후 검증 절차 보기"):
         show(check_list_card(
