@@ -71,13 +71,12 @@
 
 **SKN 36기 2차 프로젝트 3팀**
 
-| 프로필 | 이름 | 역할 | 담당 | GitHub |
-|:---:|:---:|---|---|:---:|
-| <img src="docs/profile/minji.png" width="80"> | **강민지** | 팀장 · Frontend | Streamlit 화면 구현 · UI 설계 · README · GitHub 운영 · 발표자료 | mingverse |
-| <img src="docs/profile/seonggyeong.png" width="80"> | **임성경** | 데이터 · SQL | EDA · 전처리 · SQL / DB 구축 · 데이터 전처리 결과서 | lksk789 |
-| <img src="docs/profile/jisu.png" width="80"> | **신지수** | 데이터 · EDA | EDA · 결과 해석 · 분석 코드 · SQL / DB 구축 · Feature 검토 | jisooschiro |
-| <img src="docs/profile/jaehun.png" width="80"> | **김재훈** | 모델링 | 모델 학습 · 성능 비교 · 학습 결과서 · 서비스 시연 | iyuri2519 |
-
+| 프로필 | 이름 | 담당 | GitHub |
+|:---:|:---:|---|:---:|
+| <img src="docs/profile/minji.png" width="80"> | **강민지**<br><sub>팀장 · Frontend</sub> | Streamlit 화면 구현 · UI 설계 · README · GitHub 운영 · 발표자료 | mingverse |
+| <img src="docs/profile/seonggyeong.png" width="80"> | **임성경**<br><sub>데이터 · SQL</sub> | EDA · 전처리 · SQL / DB 구축 · 데이터 전처리 결과서 | lksk789 |
+| <img src="docs/profile/jisu.png" width="80"> | **신지수**<br><sub>데이터 · EDA</sub> | EDA · 결과 해석 · 분석 코드 · SQL / DB 구축 · Feature 검토 | jisooschiro |
+| <img src="docs/profile/jaehun.png" width="80"> | **김재훈**<br><sub>모델링</sub> | 모델 학습 · 성능 비교 · 학습 결과서 · 서비스 시연 | iyuri2519 |
 ---
 
 ## 📌 2. 프로젝트 개요
