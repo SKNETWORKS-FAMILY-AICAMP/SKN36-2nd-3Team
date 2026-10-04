@@ -4,3 +4,5 @@ __pycache__/
 .ipynb_checkpoints/
 data/raw/
 .env
+okcupid_profiles.csv
+okcupid_cleaned_light.csv
