@@ -1192,18 +1192,20 @@ SKN36-2nd-3Team/
 │   ├── modeling.py                     모델링 헬퍼
 │   ├── preprocessing.py                전처리
 │   ├── shap_plots.py                   SHAP 시각화
-│   ├── stratify_graph.py               층화 분할 시각화
+│   ├── show_graph.py                   그래프 시각화
 │   ├── utils.py                        공용 유틸리티
 │   └── README.md
 │
 ├── data/                               데이터 저장 위치
-│   ├── raw/                            원본 데이터
+│   ├── raw/                            원본 데이터 (Git 미포함)
 │   └── README.md
 │
 ├── docs/                               프로젝트 문서·이미지·차트
 │   ├── profile/                        팀원 프로필 이미지
 │   ├── reports/
-│   │   └── images/                     학습 결과서 원본 그림
+│   │   ├── images/                     학습 결과서 원본 그림
+│   │   ├── OkCupid_인공지능_학습_결과서.md
+│   │   └── 데이터_전처리_결과서.md
 │   ├── confusion_matrix.png            혼동행렬
 │   ├── demo_insight.gif                INSIGHT 화면 시연
 │   ├── demo_retention.gif              RETENTION 화면 시연
@@ -1228,6 +1230,7 @@ SKN36-2nd-3Team/
 │   │   ├── init/                       DB 초기화 SQL·적재 CSV
 │   │   └── query/                      분석·타깃팅 SQL
 │   ├── .gitignore
+│   ├── __init__.py
 │   ├── db_client.py                    DB 연결 모듈
 │   ├── docker-compose.yml              PostgreSQL 컨테이너 정의
 │   ├── export_csv.py                   모델 예측 결과 CSV 생성
