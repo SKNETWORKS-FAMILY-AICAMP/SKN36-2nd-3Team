@@ -1120,7 +1120,7 @@ PostgreSQL 16
 
 |                    이름                    | 회고                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | :-----------------------------------------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **강민지**<sub>팀장 · Frontend</sub> | 이번 프로젝트를 통해 화면 설계가 얼마나 중요한지 다시 한번 깨달았다. EDA와 모델링으로 의미 있는 결과를 만드는 것도 중요하지만, 그 결과 중 무엇을 보여주고 어떻게 배치해야 사용자가 직관적으로 이해할 수 있을지 고민하는 과정은 생각보다 어렵고 재미있었다. 데이팅앱 고객 이탈 예측과 전략 제안 서비스를 만들면서, 분석 결과를 실제 의사결정에 도움이 되는 화면으로 연결하는 경험을 할 수 있었다. 추후에는 실제 행동 데이터를 바탕으로 예측을 고도화하고, 제안한 리텐션 전략의 효과를 직접 확인해 보고 싶다.                                                                    |
+| **강민지**<sub>팀장 · Frontend</sub> | 이번 프로젝트를 통해 화면 설계가 얼마나 중요한지 다시 한번 깨달았다. EDA와 모델링으로 의미 있는 결과를 만드는 것도 중요하지만, 그 결과 중 무엇을 보여주고 어떻게 배치해야 사용자가 직관적으로 이해할 수 있을지 고민하는 과정은 생각보다 어렵고 재미있었다. 데이팅앱 고객 이탈 예측과 전략 제안 서비스를 만들면서, 분석 결과를 실제 의사결정에 도움이 되는 화면으로 연결하는 경험을 할 수 있었다.                                                                                                                                                                               |
 |  **임성경**<sub>데이터 · SQL</sub>  | 나는 EDA·전처리와 SQL·DB 구축을 맡았다. 예측 결과를 화면에 띄우는 것으로 끝내지 않고, PostgreSQL에 적재해 누구에게 먼저 연락할지 SQL로 뽑아내는 데까지 연결했다. 뷰를 16개 만들면서 가장 신경 쓴 건 성능 지표를 계산할 때 학습 데이터가 섞이지 않게 하는 것이었다. 사람이 조건을 빠뜨릴 수 있으니 아예 뷰로 고정해 두었다. 전처리에서는 결측치를 채우지 않기로 했는데, 프로필을 거의 안 채운 집단의 이탈률이 3.4배 높아 빈칸 자체가 신호였기 때문이다. 분석 결과가 실제로 쓰이려면 숫자보다 그 숫자를 안전하게 꺼내 쓰는 구조가 먼저라는 걸 배웠다.                          |
 |  **신지수**<sub>데이터 · EDA</sub>  | 나는 EDA와 전처리를 맡아 OkCupid 회원의 나이·키·적극적인 구애 여부·자기소개 길이·프로필 완성도에 따른 이탈 비율을 비교했다. 그래프를 그리는 데서 끝내지 않고 차이의 이유와 활용 방법을 고민했으며, SQL로 위험도별 실제 이탈률을 비교하고 고객 유지 전략의 A/B 테스트도 설계했다. 가장 크게 배운 점은 모델 성능만큼 문제 정의가 중요하다는 것! 현재 데이터는 미래 이탈 예측보다 이미 장기 미접속인 회원을 분류하는 데 가깝다는 한계가 있었다. 다음에는 시간에 따른 행동 데이터를 활용해 미래 이탈을 예측하고, 우리가 제안한 고객 유지 전략의 효과까지 직접 확인해보고 싶다. |
 |      **김재훈**<sub>모델링</sub>      | 이번 데이팅 앱 이용자 이탈 예측 프로젝트를 진행하며, 단순히 모델의 성능을 높이는 것보다 데이터의 특성을 이해하는 과정이 중요하다는 것을 이해했다. EDA와 피처 엔지니어링을 통해 원본 데이터에서 새로운 의미를 발견할 수 있었다. 이전 Titanic 데이터 분석시에는 너무 유명한 데이터였지만, 이번에는 스스로 feature들을 분석하여야 했기에 결과를 해석하고 그 근거를 설명하는 역량도 기를 수 있었다.                                                                                                                                                                                |
@@ -1134,59 +1134,101 @@ PostgreSQL 16
 
 <br>
 
+`code`
+
 ```
-~~~text
+=======
+```
+
+```
 SKN36-2nd-3Team/
-├── ui/                                 Streamlit 화면
-│   ├── app.py                          앱 실행 · 페이지 라우팅
-│   ├── page_home.py                    HOME
-│   ├── page_insight.py                 INSIGHT
-│   ├── page_retention.py               RETENTION
-│   ├── page_about.py                   ABOUT
-│   ├── service_view.py                 SERVICE · 진단 결과 패널
-│   ├── db.py                           PostgreSQL 연결 · 조회 · 적재
-│   ├── predict.py                      단일 프로필 예측 · SHAP 근거
-│   ├── insight_data.py                 그룹별 이탈률 계산
-│   ├── project_facts.py                프로젝트 수치 상수
-│   ├── styles.py · ui_parts.py         공통 스타일 · UI 부품
-│   ├── avatars.py                      프로필 아바타 생성
-│   └── assets/                         이미지
+├── .streamlit/
+│   └── config.toml                     Streamlit 설정
 │
 ├── common/                             학습·예측 공용 모듈
-│   ├── feature_extraction.py           파생변수 20개 생성
-│   ├── preprocessing.py                층화 분할 · 시드 고정
-│   ├── modeling.py · meow_modeling.py  학습 헬퍼
+│   ├── evaluation_plots.py             평가 시각화
 │   ├── evaluations.py                  평가 지표
+│   ├── feature_extraction.py           파생변수 생성
+│   ├── meow_modeling.py                모델링 헬퍼
+│   ├── modeling.py                     모델링 헬퍼
+│   ├── preprocessing.py                전처리
 │   ├── shap_plots.py                   SHAP 시각화
-│   └── utils.py                        시드 고정 데코레이터
+│   ├── stratify_graph.py               층화 분할 시각화
+│   ├── utils.py                        공용 유틸리티
+│   └── README.md
+│
+├── data/                               데이터 저장 위치
+│   ├── raw/                            원본 데이터
+│   └── README.md
+│
+├── docs/                               프로젝트 문서·이미지·차트
+│   ├── profile/                        팀원 프로필 이미지
+│   ├── reports/
+│   │   └── images/                     학습 결과서 원본 그림
+│   ├── confusion_matrix.png            혼동행렬
+│   ├── demo_insight.gif                INSIGHT 화면 시연
+│   ├── demo_retention.gif              RETENTION 화면 시연
+│   ├── demo_service.gif                SERVICE 화면 시연
+│   ├── erd.png                         ERD
+│   ├── market_cost.png                 시장 분석 이미지
+│   ├── market_retention.png            시장 분석 이미지
+│   └── README.md
+│
+├── models/                             학습된 모델 파일
+│   ├── okcupid_model_09_21_18_00.cbm   CatBoost 모델
+│   └── README.md
 │
 ├── notebooks/                          분석·모델링 노트북
 │   ├── okcupid_EDA.ipynb               탐색적 데이터 분석
-│   └── okcupid_modeling.ipynb          CatBoost 모델링 · 성능 평가
+│   ├── okcupid_modeling.ipynb          CatBoost 모델링·성능 평가
+│   └── README.md
 │
-├── sqlonly/                            SQL · DB
-│   ├── docker-compose.yml              PostgreSQL 16 컨테이너 정의
+├── sqlonly/                            SQL·DB
+│   ├── ab_test/                        A/B 테스트 설계 SQL
 │   ├── sql/
-│   │   ├── init/                       컨테이너 초기화 SQL
-│   │   └── query/                      분석 · 타깃팅 SQL
-│   ├── ab_test/                        A/B 테스트 설계
+│   │   ├── init/                       DB 초기화 SQL·적재 CSV
+│   │   └── query/                      분석·타깃팅 SQL
+│   ├── .gitignore
+│   ├── db_client.py                    DB 연결 모듈
+│   ├── docker-compose.yml              PostgreSQL 16 컨테이너 정의
 │   ├── export_csv.py                   모델 예측 결과 CSV 생성
 │   ├── README.md                       DB 실행 순서
 │   └── TEAM.md                         팀 협업 안내
 │
-├── data/                               데이터 저장 위치 (Git 미포함)
-│   ├── raw/                            원본 CSV
-│   └── processed/                      전처리 결과 CSV
+├── ui/                                 Streamlit 화면
+│   ├── assets/
+│   │   └── catch_hero.png              HOME Hero 이미지
+│   ├── app.py                          앱 실행·페이지 라우팅
+│   ├── avatars.py                      프로필 아바타 생성
+│   ├── db.py                           PostgreSQL 연결·조회·적재
+│   ├── insight_data.py                 그룹별 이탈률 계산
+│   ├── page_about.py                   ABOUT
+│   ├── page_home.py                    HOME
+│   ├── page_insight.py                 INSIGHT
+│   ├── page_retention.py               RETENTION
+│   ├── predict.py                      단일 프로필 예측·SHAP 근거
+│   ├── project_facts.py                프로젝트 수치 상수
+│   ├── service_view.py                 SERVICE·진단 결과 패널
+│   ├── styles.py                       공통 스타일
+│   ├── ui_parts.py                     UI 공통 부품
+│   └── README.md
 │
-├── models/                             학습된 모델 파일
-├── docs/                               이미지 · 캡처 · 차트
-├── .env.example                        환경변수 예시
+├── .env.example
 ├── .env                                실제 환경변수 (Git 미포함)
-├── .streamlit/                         Streamlit 설정
+├── .gitignore
 ├── pyproject.toml                      프로젝트 의존성
-├── uv.lock                             의존성 잠금 파일
-└── README.md
-~~~
+├── README.md
+└── uv.lock                             의존성 잠금 파일
+```
+
+>>>>>>> `code`
+>>>>>>>
+>>>>>>
+>>>>>
+>>>>
+>>>
+>>
+
 ```
 
 </details>
@@ -1194,3 +1236,8 @@ SKN36-2nd-3Team/
 ---
 
 <div align="center">
+
+**SKN 36기 2차 프로젝트 3팀 · ♥ Catch**
+
+</div>
+```
