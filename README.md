@@ -1135,6 +1135,7 @@ PostgreSQL 16
 <br>
 
 ```
+~~~text
 SKN36-2nd-3Team/
 ├── ui/                                 Streamlit 화면
 │   ├── app.py                          앱 실행 · 페이지 라우팅
@@ -1163,24 +1164,13 @@ SKN36-2nd-3Team/
 │   ├── okcupid_EDA.ipynb               탐색적 데이터 분석
 │   └── okcupid_modeling.ipynb          CatBoost 모델링 · 성능 평가
 │
-├── sqlonly/                            SQL · DB (독립 실행)
+├── sqlonly/                            SQL · DB
 │   ├── docker-compose.yml              PostgreSQL 16 컨테이너 정의
 │   ├── sql/
-│   │   ├── init/                       컨테이너 생성 시 자동 실행
-│   │   │   ├── 01_schema_core.sql      테이블 · 기본 뷰
-│   │   │   ├── 02_schema_ab.sql        A/B 확장 테이블
-│   │   │   ├── 03_views.sql            화면용 분석 뷰
-│   │   │   ├── 04_schema_live.sql      진단 이력 테이블 · 뷰
-│   │   │   ├── 05_load_data.sql        예측 결과 적재
-│   │   │   └── predictions.csv         59,946행 예측 결과
-│   │   └── query/                      DBeaver 수동 실행 쿼리
-│   │       ├── 01_check.sql            기본 확인
-│   │       ├── 02_hypothesis.sql       가설 H1~H3 검증
-│   │       ├── 03_campaign.sql         개입 대상 추출
-│   │       ├── 04_live.sql             진단 이력 확인
-│   │       └── 05_targeting.sql        SQL 타깃팅
+│   │   ├── init/                       컨테이너 초기화 SQL
+│   │   └── query/                      분석 · 타깃팅 SQL
 │   ├── ab_test/                        A/B 테스트 설계
-│   ├── export_csv.py                   모델 → 예측 CSV 재생성
+│   ├── export_csv.py                   모델 예측 결과 CSV 생성
 │   ├── README.md                       DB 실행 순서
 │   └── TEAM.md                         팀 협업 안내
 │
@@ -1188,27 +1178,15 @@ SKN36-2nd-3Team/
 │   ├── raw/                            원본 CSV
 │   └── processed/                      전처리 결과 CSV
 │
-├── models/                             학습된 모델 파일 (.cbm, Git 미포함)
-│
+├── models/                             학습된 모델 파일
 ├── docs/                               이미지 · 캡처 · 차트
-│   ├── market_retention.png            배경 — 30일 잔존율
-│   ├── market_cost.png                 배경 — 설치당 비용
-│   ├── confusion_matrix.png            혼동행렬
-│   ├── erd.png                         ERD
-│   ├── demo_*.gif                      화면 시연 3종
-│   ├── profile/                        팀원 프로필 4장
-│   └── reports/images/                 학습 결과서 원본 그림
-│       ├── shap_numeric.png
-│       ├── shap_categorical.png
-│       ├── roc_curve.png
-│       └── pr_curve.png
-│
 ├── .env.example                        환경변수 예시
 ├── .env                                실제 환경변수 (Git 미포함)
 ├── .streamlit/                         Streamlit 설정
 ├── pyproject.toml                      프로젝트 의존성
 ├── uv.lock                             의존성 잠금 파일
 └── README.md
+~~~
 ```
 
 </details>
