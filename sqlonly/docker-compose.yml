@@ -1,0 +1,39 @@
+# Day Zero — PostgreSQL 개발용 컨테이너
+#
+# 실행:  docker compose up -d
+# 종료:  docker compose down          (데이터는 남음)
+# 초기화: docker compose down -v      (데이터까지 삭제)
+
+services:
+  db:
+    image: postgres:16
+    container_name: dayzero-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_USER: dayzero
+      POSTGRES_PASSWORD: dayzero123
+      POSTGRES_DB: okcupid
+      # 한글 정렬·인코딩 안전하게
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+      TZ: Asia/Seoul
+
+    ports:
+      # 왼쪽이 내 컴퓨터 포트. 이미 5432를 쓰고 있으면 "5433:5432" 로 바꿀 것
+      - "5432:5432"
+
+    volumes:
+      # 데이터를 컨테이너 밖에 보관 → 컨테이너를 지워도 데이터는 남음
+      - pgdata:/var/lib/postgresql/data
+      # sql/init 안의 .sql만 "DB가 처음 만들어질 때 딱 한 번" 자동 실행됨
+      # sql/query 와 ab_test 는 DBeaver에서 손으로 돌리는 것이라 마운트하지 않음
+      - ./sql/init:/docker-entrypoint-initdb.d
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dayzero -d okcupid"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

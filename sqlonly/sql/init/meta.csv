@@ -1,0 +1,2 @@
+built_at,model_file,churn_days,n_rows,n_features
+2026-09-22 19:41:20,catboost_d5_lr006_it300.cbm,30,59946,20
